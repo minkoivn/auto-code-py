@@ -1,5 +1,6 @@
 import logging
 import os
+import argparse
 from config import DEFAULT_APPLICATION_VERSION
 
 def setup_logging() -> None:
@@ -35,3 +36,9 @@ def get_application_version(cli_version: int | None = None) -> int:
     
     logging.info(f"Phiên bản được sử dụng: {application_version} (nguồn: {source})")
     return application_version
+
+def parse_cli_arguments() -> argparse.Namespace:
+    """Phân tích các đối số dòng lệnh cho ứng dụng, bao gồm tùy chọn phiên bản."""
+    parser = argparse.ArgumentParser(description="Chạy Project A với phiên bản được chỉ định.")
+    parser.add_argument('--version', type=int, help=f"Chỉ định phiên bản ứng dụng (mặc định: {DEFAULT_APPLICATION_VERSION}).")
+    return parser.parse_args()
