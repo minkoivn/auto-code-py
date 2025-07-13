@@ -1,14 +1,14 @@
-# app/main.py
-"""Đây là module chính của Project A."""
 import logging
 import os
+
+# Di chuyển hằng số ra cấp module để dễ quản lý hơn
+DEFAULT_APPLICATION_VERSION: int = 1
 
 class Application:
     """
     Lớp đại diện cho ứng dụng Project A.
     Xử lý logic lấy phiên bản và chạy ứng dụng.
     """
-    DEFAULT_APPLICATION_VERSION: int = 1 # Định nghĩa hằng số phiên bản mặc định bên trong lớp
 
     @staticmethod
     def setup_logging() -> None:
@@ -28,7 +28,7 @@ class Application:
         Bao gồm kiểm tra, chuyển đổi kiểu và ghi log chi tiết.
         """
         version_str: str | None = os.environ.get('VERSION')
-        application_version: int = self.DEFAULT_APPLICATION_VERSION # Khởi tạo với phiên bản mặc định
+        application_version: int = DEFAULT_APPLICATION_VERSION # Sử dụng hằng số từ cấp module
         source: str = "mặc định"
 
         if version_str:
