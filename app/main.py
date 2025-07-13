@@ -6,6 +6,7 @@ def run_application():
     """
 
     print("Hello from Project A - Version 1")
+    # Đây là thông điệp chào mừng ban đầu của ứng dụng.
 
 if __name__ == "__main__":
     run_application()
