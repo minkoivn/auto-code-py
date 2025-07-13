@@ -16,13 +16,13 @@ def run_application():
         if version:
             try:
                 version = int(version) # Kiểm tra xem VERSION có phải là số nguyên
-                if version != 1:
-                    logging.info(f"Đã lấy phiên bản từ biến môi trường: {version}")
+                logging.info(f"Đã lấy phiên bản từ biến môi trường: {version}")
             except ValueError:
                 logging.warning("Biến môi trường VERSION không phải là số nguyên. Sử dụng phiên bản mặc định.")
                 version = 1
         else:
             version = 1
+        logging.info(f"Phiên bản đang sử dụng: {version}")
         print(f"Hello from Project A - Version {version}")
         logging.info("Ứng dụng đã chạy xong")
     except Exception as e:
