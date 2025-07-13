@@ -28,6 +28,8 @@ def run_application():
         logging.info("Ứng dụng đã chạy xong")
     except Exception as e:
         logging.exception(f"Lỗi trong quá trình chạy ứng dụng: {e}")
+    finally:
+        logging.info("Ứng dụng đã kết thúc")
 
 if __name__ == "__main__":
     run_application()
