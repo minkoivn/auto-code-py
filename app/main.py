@@ -3,6 +3,9 @@
 import logging
 import os
 
+# Define constants
+DEFAULT_APPLICATION_VERSION = 1
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(filename)s - %(lineno)d - %(message)s')
 
 def _get_application_version():
@@ -19,12 +22,12 @@ def _get_application_version():
             return version_int
         except ValueError:
             logging.warning("Biến môi trường VERSION không phải là số nguyên hợp lệ. Sử dụng phiên bản mặc định.")
-            logging.info("Sử dụng phiên bản mặc định: 1")
-            return 1
+            logging.info(f"Sử dụng phiên bản mặc định: {DEFAULT_APPLICATION_VERSION}")
+            return DEFAULT_APPLICATION_VERSION
     else:
         logging.info("Biến môi trường VERSION không được đặt. Sử dụng phiên bản mặc định.")
-        logging.info("Sử dụng phiên bản mặc định: 1")
-        return 1
+        logging.info(f"Sử dụng phiên bản mặc định: {DEFAULT_APPLICATION_VERSION}")
+        return DEFAULT_APPLICATION_VERSION
 
 def run_application():
     """
