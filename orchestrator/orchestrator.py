@@ -21,12 +21,6 @@ def setup():
     genai.configure(api_key=api_key)
     print("✅ Đã cấu hình Gemini API Key.")
 
-def clean_response_text(text: str) -> str:
-    """Dọn dẹp văn bản phản hồi từ AI."""
-    cleaned_text = text.replace("\u00A0", " ")
-    cleaned_text = cleaned_text.replace("\r", "")
-    return cleaned_text
-
 def get_source_code_context():
     """Đọc mã nguồn thư mục 'app' để làm bối cảnh."""
     context = ""
@@ -40,29 +34,9 @@ def get_source_code_context():
                 context += "\n\n"
     return context
 
-def generate_diff_from_new_content(filepath: str, new_content: str):
-    """
-    So sánh nội dung mới với file gốc và tạo ra một bản vá diff đáng tin cậy.
-    """
-    print(f"⚙️ [DIFF GENERATOR] Đang tạo diff cho file: {filepath}")
-    temp_filepath = filepath + ".new"
-    try:
-        with open(temp_filepath, "w", encoding="utf-8") as f:
-            f.write(new_content)
-        result = subprocess.run(
-            ["git", "diff", "--no-index", "--", filepath, temp_filepath],
-            capture_output=True,
-            text=True,
-            encoding="utf-8"
-        )
-        return result.stdout
-    finally:
-        if os.path.exists(temp_filepath):
-            os.remove(temp_filepath)
+# --- CÁC HÀM TƯƠNG TÁC VỚI AI VÀ LOG ---
 
-# --- CÁC HÀM TƯƠNG TÁC VỚI AI ---
-
-def format_history_for_prompt(history_log: list, num_entries=5) -> str:
+def format_history_for_prompt(history_log: list, num_entries=10) -> str:
     """Định dạng các mục log gần đây nhất để đưa vào prompt."""
     if not history_log:
         return "Chưa có lịch sử."
@@ -75,7 +49,8 @@ def format_history_for_prompt(history_log: list, num_entries=5) -> str:
 
 def invoke_ai_x(context: str, history_log: list):
     """
-    Yêu cầu AI X trả về toàn bộ nội dung file mới, sau đó tự tạo diff.
+    Yêu cầu AI X trả về toàn bộ nội dung file mới.
+    Trả về một tuple: (filepath, new_content, failure_reason)
     """
     print("🤖 [AI X] Đang kết nối Gemini, đọc lịch sử và tạo đề xuất file mới...")
     with open("orchestrator/prompts/x_prompt.txt", "r", encoding="utf-8") as f:
@@ -88,7 +63,7 @@ def invoke_ai_x(context: str, history_log: list):
     model = genai.GenerativeModel('gemini-2.5-flash')
     try:
         response = model.generate_content(prompt)
-        text = clean_response_text(response.text)
+        text = response.text.replace("\u00A0", " ").replace("\r", "")
         match = re.search(r'<new_code filepath="([^"]+)">\s*(.*?)\s*</new_code>', text, re.DOTALL)
         
         if match:
@@ -96,100 +71,75 @@ def invoke_ai_x(context: str, history_log: list):
             new_content = match.group(2).strip()
             
             if not os.path.exists(filepath):
-                return None, f"AI đề xuất sửa file không tồn tại: {filepath}"
+                return None, None, f"AI đề xuất sửa file không tồn tại: {filepath}"
+            
+            # Kiểm tra xem có thay đổi thực sự không
+            with open(filepath, 'r', encoding='utf-8') as f:
+                original_content = f.read()
+            if original_content == new_content:
+                return None, None, "Nội dung AI đề xuất giống hệt file gốc."
 
-            diff = generate_diff_from_new_content(filepath, new_content)
-            if diff:
-                print("🤖 [AI X] Đã tạo diff thành công từ nội dung file mới.")
-                return diff, None
-            else:
-                 return None, "Nội dung AI đề xuất giống hệt file gốc."
+            print("🤖 [AI X] Đã nhận được đề xuất nội dung file mới.")
+            return filepath, new_content, None
         else:
-            return None, "AI không trả về nội dung theo định dạng <new_code>..."
+            return None, None, "AI không trả về nội dung theo định dạng <new_code>..."
 
     except Exception as e:
         print(f"❌ Lỗi khi gọi Gemini API cho AI X: {e}")
-        return None, str(e)
+        return None, None, str(e)
 
-def invoke_ai_y(diff: str):
-    """Hàm này không cần lịch sử, giữ nguyên."""
-    print("🧐 [AI Y] Đang kết nối Gemini và kiểm duyệt thay đổi...")
-    with open("orchestrator/prompts/y_prompt.txt", "r", encoding="utf-8") as f:
-        prompt_template = f.read()
-    model = genai.GenerativeModel('gemini-2.5-flash')
-    prompt = f"{prompt_template}\n\n{diff}"
+
+# --- HÀM THỰC THI KIẾN TRÚC MỚI ---
+
+def validate_and_commit_changes(filepath: str, new_content: str):
+    """
+    Kiểm tra cú pháp của nội dung mới, nếu hợp lệ thì ghi đè và commit.
+    Trả về một tuple (status, final_reason).
+    """
+    print(f"🚀 [Z] Bắt đầu quá trình thực thi cho file: {filepath}")
+    temp_filepath = filepath + ".tmp"
     try:
-        response = model.generate_content(prompt)
-        text = clean_response_text(response.text)
-        json_match = re.search(r'\{.*\}', text, re.DOTALL)
-        if json_match:
-            print("🧐 [AI Y] Đã nhận được đánh giá.")
-            return json.loads(json_match.group(0))
+        # 1. Ghi nội dung mới vào file tạm để kiểm tra
+        with open(temp_filepath, "w", encoding="utf-8") as f:
+            f.write(new_content)
+        
+        # 2. Kiểm tra cú pháp trên file tạm
+        py_compile.compile(temp_filepath, doraise=True)
+        print("✅ [VALIDATOR] Mã nguồn mới hợp lệ.")
+
+        # 3. Ghi đè file gốc và commit
+        os.replace(temp_filepath, filepath)
+        print(f"📝 Đã ghi đè thành công file: {filepath}")
+        
+        subprocess.run(["git", "add", filepath], check=True)
+        commit_message = f"feat(AI): Tự động cải tiến file {os.path.basename(filepath)}"
+        subprocess.run(["git", "commit", "-m", commit_message], check=True)
+        print(f"🚀 [Z] Đã tạo commit mới: '{commit_message}'")
+        
+        return "COMMITTED", commit_message
+
+    except py_compile.PyCompileError as e:
+        # Nếu lỗi cú pháp, chỉ cần xóa file tạm
+        error_reason = f"Lỗi cú pháp trong đề xuất mới: {e}"
+        print(f"❌ [VALIDATOR] {error_reason}")
+        return "REJECTED_VALIDATION_FAILED", error_reason
     except Exception as e:
-        print(f"❌ Lỗi khi gọi Gemini API cho AI Y: {e}")
-    return {"decision": "rejected", "reason": "Lỗi xử lý hoặc API."}
-
-# --- CÁC HÀM VALIDATE, ROLLBACK, COMMIT ---
-
-def validate_changes():
-    print("🔍 [VALIDATOR] Đang kiểm tra tính hợp lệ của mã nguồn mới...")
-    for root, _, files in os.walk("app"):
-        for file in files:
-            if file.endswith(".py"):
-                filepath = os.path.join(root, file)
-                try:
-                    py_compile.compile(filepath, doraise=True)
-                except py_compile.PyCompileError as e:
-                    print(f"❌ LỖI CÚ PHÁP trong file {filepath}: {e}")
-                    return False
-    print("✅ [VALIDATOR] Mã nguồn hợp lệ.")
-    return True
-
-def rollback_changes():
-    print("🔙 [ROLLBACK] Phát hiện lỗi! Đang khôi phục phiên bản ổn định...")
-    try:
-        subprocess.run(["git", "reset", "--hard", "HEAD"], check=True, capture_output=True)
-        print("🔙 [ROLLBACK] Khôi phục thành công.")
-    except subprocess.CalledProcessError as e:
-        error_message = e.stderr.decode() if e.stderr else "Lỗi không xác định."
-        print(f"❌ Lỗi khi rollback: {error_message}")
-
-def apply_and_commit_changes(diff, reason):
-    print("🚀 [Z] Bắt đầu quá trình thực thi...")
-    patch_file = "change.patch"
-    with open(patch_file, "w", encoding="utf-8") as f:
-        f.write(diff)
-    try:
-        subprocess.run(["git", "apply", "--check", patch_file], check=True)
-        subprocess.run(["git", "apply", patch_file], check=True)
-        print("🚀 [Z] Áp dụng bản vá thành công.")
-        if validate_changes():
-            print("🚀 [Z] Thay đổi an toàn. Tiến hành commit...")
-            subprocess.run(["git", "add", "."], check=True)
-            commit_message = f"feat(AI): {reason}"
-            subprocess.run(["git", "commit", "-m", commit_message], check=True)
-            print(f"🚀 [Z] Đã tạo commit mới: '{commit_message}'")
-            return "COMMITTED"
-        else:
-            rollback_changes()
-            return "ROLLBACK_VALIDATION_FAILED"
-    except subprocess.CalledProcessError as e:
-        print("❌ Lỗi khi áp dụng bản vá.")
-        error_message = e.stderr.decode() if e.stderr else "Lỗi không xác định."
-        print(f"   Chi tiết lỗi: {error_message}")
-        rollback_changes()
-        return "ROLLBACK_APPLY_FAILED"
+        # Xử lý các lỗi khác
+        error_reason = f"Lỗi không xác định trong quá trình thực thi: {e}"
+        print(f"❌ [Z] {error_reason}")
+        return "EXECUTION_FAILED", error_reason
     finally:
-        if os.path.exists(patch_file):
-            os.remove(patch_file)
+        # Luôn đảm bảo file tạm được xóa
+        if os.path.exists(temp_filepath):
+            os.remove(temp_filepath)
 
-# --- LUỒNG CHÍNH VỚI TÍNH NĂNG GHI LOG VÀO TỆP ---
+
+# --- LUỒNG CHÍNH ĐƯỢC ĐƠN GIẢN HÓA ---
 
 def main():
     """Hàm chính chứa vòng lặp và quản lý lịch sử bền vững."""
     setup()
     
-    # Tải lịch sử từ file log nếu có
     history_log = []
     if os.path.exists(LOG_FILE_PATH):
         try:
@@ -200,7 +150,6 @@ def main():
             print(f"⚠️ File log {LOG_FILE_PATH} bị lỗi, bắt đầu lịch sử mới.")
             history_log = []
 
-    # Bắt đầu đếm từ lần lặp cuối cùng trong log
     iteration_count = len(history_log)
 
     try:
@@ -212,20 +161,14 @@ def main():
             
             log_entry = { "iteration": iteration_count, "status": "", "reason": "" }
             source_context = get_source_code_context()
-            proposed_diff, failure_reason = invoke_ai_x(source_context, history_log)
+            filepath, new_content, failure_reason = invoke_ai_x(source_context, history_log)
             
-            if proposed_diff:
-                review = invoke_ai_y(proposed_diff)
-                if review and review.get("decision") == "approved":
-                    reason = review.get('reason', 'AI Y approved.')
-                    status = apply_and_commit_changes(proposed_diff, reason)
-                    log_entry["status"] = status
-                    log_entry["reason"] = reason
-                else:
-                    reason = review.get('reason', 'No reason provided.')
-                    print(f"❌ Thay đổi đã bị từ chối bởi AI Y. Lý do: {reason}")
-                    log_entry["status"] = "REJECTED"
-                    log_entry["reason"] = reason
+            if filepath and new_content:
+                # Với kiến trúc mới, chúng ta không cần AI Y nữa.
+                # Việc kiểm tra cú pháp đã là một "người kiểm duyệt" máy móc hiệu quả.
+                status, final_reason = validate_and_commit_changes(filepath, new_content)
+                log_entry["status"] = status
+                log_entry["reason"] = final_reason
             else:
                 print(f"❌ AI X không tạo ra đề xuất hợp lệ. Lý do: {failure_reason}")
                 log_entry["status"] = "NO_PROPOSAL"
