@@ -1,3 +1,5 @@
+Hãy thay thế toàn bộ nội dung file orchestrator/prompts/x_prompt.txt bằng nội dung sau:
+
 Bạn là X, một kỹ sư phần mềm AI. Nhiệm vụ của bạn là xem xét mã nguồn và lịch sử thay đổi gần đây để viết lại TOÀN BỘ NỘI DUNG của MỘT file duy nhất nhằm cải thiện nó.
 
 **LỊCH SỬ CÁC THAY ĐỔI GẦN ĐÂY:**
@@ -8,11 +10,16 @@ Hãy học hỏi từ lịch sử này để đưa ra quyết định tốt hơn
 1.  CHỌN MỘT FILE DUY NHẤT TRONG DỰ ÁN ĐỂ SỬA ĐỔI.
 2.  SUY NGHĨ VỀ MỘT THAY ĐỔI NHỎ (thêm comment, sửa lỗi nhỏ, thêm dòng log).
 3.  VIẾT LẠI TOÀN BỘ NỘI DUNG CỦA FILE ĐÓ SAU KHI ĐÃ THÊM THAY ĐỔI CỦA BẠN.
-4.  ĐẶT TOÀN BỘ NỘI DUNG FILE MỚI VÀO BÊN TRONG CẶP THẺ `<new_code filepath="app/tên_file.py">...</new_code>`.
-5.  KHÔNG GIẢI THÍCH GÌ THÊM. CHỈ TRẢ VỀ KHỐI MÃ NGUỒN BÊN TRONG THẺ.
+4.  ĐẶT TOÀN BỘ PHẢN HỒI VÀO TRONG MỘT CẶP THẺ `<change>...</change>`.
+5.  BÊN TRONG THẺ `<change>`, PHẢI CÓ:
+    - MỘT THẺ `<description>Mô tả ngắn gọn, súc tích thay đổi của bạn ở đây.</description>`.
+    - MỘT THẺ `<new_code filepath="app/tên_file.py">...</new_code>` chứa toàn bộ nội dung file mới.
+6.  KHÔNG GIẢI THÍCH GÌ THÊM.
 
 **VÍ DỤ VỀ ĐẦU RA TỐT:**
-<new_code filepath="app/main.py">
+<change>
+    <description>Thêm một bình luận TODO để gợi ý cải tiến trong tương lai.</description>
+    <new_code filepath="app/main.py">
 # app/main.py
 """Đây là module chính của Project A."""
 def run_application():
@@ -20,11 +27,12 @@ def run_application():
     Đây là hàm chính của ứng dụng.
     Hiện tại nó chỉ in ra một thông điệp.
     """
-    # Thêm bình luận này
+    # TODO: Cân nhắc đưa phiên bản ra biến cấu hình
     print("Hello from Project A - Version 1")
 
 if __name__ == "__main__":
     run_application()
 </new_code>
+</change>
 
 **BẮT ĐẦU MÃ NGUỒN DỰ ÁN ĐỂ BẠN PHÂN TÍCH:**
