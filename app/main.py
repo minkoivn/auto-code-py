@@ -45,7 +45,7 @@ def run_application():
     try:
         logging.info("Ứng dụng đã bắt đầu chạy")
         version = _get_application_version()
-        print(f"Hello from Project A - Version {version}")
+        logging.info(f"Hello from Project A - Version {version}") # Thay đổi từ print thành logging.info
         logging.info("Ứng dụng đã chạy xong")
     except Exception as e:
         logging.exception(f"Lỗi trong quá trình chạy ứng dụng: {e}")
