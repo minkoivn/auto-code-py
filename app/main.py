@@ -6,7 +6,12 @@ import os
 # Define constants
 DEFAULT_APPLICATION_VERSION = 1
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(filename)s - %(lineno)d - %(message)s')
+def _setup_logging():
+    """Cấu hình cài đặt logging cơ bản cho ứng dụng."""
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(filename)s - %(lineno)d - %(message)s')
+
+# Call the setup function immediately
+_setup_logging()
 
 def _get_application_version():
     """
