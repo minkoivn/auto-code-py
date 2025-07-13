@@ -98,5 +98,55 @@
         "iteration": 20,
         "status": "COMMITTED",
         "reason": "Thêm logging để ghi lại việc sử dụng phiên bản mặc định."
+    },
+    {
+        "iteration": 21,
+        "status": "COMMITTED",
+        "reason": "Tách logic lấy phiên bản ứng dụng và xử lý biến môi trường vào một hàm riêng (_get_application_version) để cải thiện khả năng đọc và bảo trì."
+    },
+    {
+        "iteration": 22,
+        "status": "COMMITTED",
+        "reason": "Định nghĩa hằng số DEFAULT_APPLICATION_VERSION để loại bỏ số 'magic number' và cải thiện khả năng bảo trì."
+    },
+    {
+        "iteration": 23,
+        "status": "COMMITTED",
+        "reason": "Tách cấu hình logging vào một hàm riêng (_setup_logging) để cải thiện khả năng tổ chức và bảo trì của module."
+    },
+    {
+        "iteration": 24,
+        "status": "COMMITTED",
+        "reason": "Tái cấu trúc hàm _get_application_version để hợp nhất các thông điệp ghi log về việc sử dụng phiên bản mặc định, giúp mã nguồn gọn gàng và dễ đọc hơn."
+    },
+    {
+        "iteration": 25,
+        "status": "COMMITTED",
+        "reason": "Loại bỏ thông điệp ghi log trùng lặp về phiên bản ứng dụng trong hàm run_application, vì thông tin chi tiết đã được ghi lại trong _get_application_version."
+    },
+    {
+        "iteration": 26,
+        "status": "COMMITTED",
+        "reason": "Thay thế câu lệnh `print` trực tiếp bằng `logging.info` để đảm bảo tính nhất quán trong đầu ra ứng dụng và tận dụng hệ thống logging đã cấu hình."
+    },
+    {
+        "iteration": 27,
+        "status": "COMMITTED",
+        "reason": "Tái cấu trúc ứng dụng thành một lớp `Application` để cải thiện khả năng tổ chức và quản lý trạng thái của ứng dụng."
+    },
+    {
+        "iteration": 28,
+        "status": "COMMITTED",
+        "reason": "Thêm gợi ý kiểu dữ liệu (type hints) cho các biến và hàm để cải thiện khả năng đọc và hỗ trợ phân tích tĩnh."
+    },
+    {
+        "iteration": 29,
+        "status": "COMMITTED",
+        "reason": "Di chuyển hàm cấu hình logging vào lớp Application làm một static method để tăng cường khả năng tổ chức và tính nhất quán với cấu trúc hướng đối tượng của ứng dụng."
+    },
+    {
+        "iteration": 30,
+        "status": "COMMITTED",
+        "reason": "Di chuyển hằng số DEFAULT_APPLICATION_VERSION từ lớp Application lên cấp module để tăng cường khả năng tổ chức và theo dõi các hằng số chung của ứng dụng."
     }
 ]
