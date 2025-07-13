@@ -18,21 +18,24 @@ def _get_application_version():
     Xử lý logic lấy phiên bản ứng dụng từ biến môi trường hoặc sử dụng mặc định.
     Bao gồm kiểm tra, chuyển đổi kiểu và ghi log chi tiết.
     """
-    version = os.environ.get('VERSION')
-    if version:
-        logging.info(f"Biến môi trường VERSION được tìm thấy: '{version}'")
+    version_str = os.environ.get('VERSION')
+    application_version = DEFAULT_APPLICATION_VERSION # Khởi tạo với phiên bản mặc định
+    source = "mặc định"
+
+    if version_str:
+        logging.info(f"Biến môi trường VERSION được tìm thấy: '{version_str}'")
         try:
-            version_int = int(version) # Kiểm tra xem VERSION có phải là số nguyên
-            logging.info(f"Đã chuyển đổi VERSION thành số nguyên: {version_int}")
-            return version_int
+            version_int = int(version_str) # Kiểm tra xem VERSION có phải là số nguyên
+            application_version = version_int
+            source = "biến môi trường"
+            logging.info(f"Đã chuyển đổi VERSION thành số nguyên: {application_version}")
         except ValueError:
-            logging.warning("Biến môi trường VERSION không phải là số nguyên hợp lệ. Sử dụng phiên bản mặc định.")
-            logging.info(f"Sử dụng phiên bản mặc định: {DEFAULT_APPLICATION_VERSION}")
-            return DEFAULT_APPLICATION_VERSION
+            logging.warning(f"Biến môi trường VERSION '{version_str}' không phải là số nguyên hợp lệ. Sử dụng phiên bản mặc định.")
     else:
         logging.info("Biến môi trường VERSION không được đặt. Sử dụng phiên bản mặc định.")
-        logging.info(f"Sử dụng phiên bản mặc định: {DEFAULT_APPLICATION_VERSION}")
-        return DEFAULT_APPLICATION_VERSION
+    
+    logging.info(f"Phiên bản được sử dụng: {application_version} (nguồn: {source})")
+    return application_version
 
 def run_application():
     """
