@@ -1,9 +1,7 @@
 import logging
 import os
 import argparse
-
-# Di chuyển hằng số ra cấp module để dễ quản lý hơn
-DEFAULT_APPLICATION_VERSION: int = 1
+from config import DEFAULT_APPLICATION_VERSION
 
 class Application:
     """
