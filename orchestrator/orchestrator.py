@@ -49,7 +49,7 @@ def format_history_for_prompt(history_log: list, num_entries=10) -> str:
 
 def invoke_ai_x(context: str, history_log: list):
     """
-    Yêu cầu AI X trả về nội dung file mới và mô tả thay đổi.
+    Yêu cầu AI X trả về một đối tượng JSON chứa nội dung file mới và mô tả.
     Trả về một tuple: (filepath, new_content, description, failure_reason)
     """
     print("🤖 [AI X] Đang kết nối Gemini, đọc lịch sử và tạo đề xuất file mới...")
@@ -60,36 +60,42 @@ def invoke_ai_x(context: str, history_log: list):
     prompt_filled_history = prompt_template.replace("{history_context}", history_context)
     prompt = f"{prompt_filled_history}\n\n{context}"
     
-    # Sửa tên model nếu cần, ví dụ 'gemini-2.5-flash'
-    model = genai.GenerativeModel('gemini-2.5-flash') 
+    model = genai.GenerativeModel('gemini-1.5-flash-latest')
     try:
         response = model.generate_content(prompt)
         text = response.text.replace("\u00A0", " ").replace("\r", "")
         
-        # Cập nhật regex để trích xuất cả description
-        match = re.search(
-            r'<change>\s*<description>(.*?)</description>\s*<new_code filepath="([^"]+)">\s*(.*?)\s*</new_code>\s*</change>',
-            text,
-            re.DOTALL
-        )
-        
-        if match:
-            description = match.group(1).strip()
-            filepath = match.group(2).strip()
-            new_content = match.group(3).strip()
-            
-            if not os.path.exists(filepath):
-                return None, None, None, f"AI đề xuất sửa file không tồn tại: {filepath}"
-            
-            with open(filepath, 'r', encoding='utf-8') as f:
-                original_content = f.read()
-            if original_content == new_content:
-                return None, None, None, "Nội dung AI đề xuất giống hệt file gốc."
+        # Cập nhật regex để tìm khối JSON
+        match = re.search(r'```json\s*(\{.*?\})\s*```', text, re.DOTALL)
+        if not match:
+            # Fallback nếu AI không dùng backticks
+            match = re.search(r'(\{.*?\})', text, re.DOTALL)
 
-            print("🤖 [AI X] Đã nhận được đề xuất nội dung file mới và mô tả.")
-            return filepath, new_content, description, None
+        if match:
+            json_string = match.group(1)
+            try:
+                data = json.loads(json_string)
+                filepath = data.get("filepath")
+                new_content = data.get("new_code")
+                description = data.get("description")
+
+                if not all([filepath, new_content, description]):
+                    return None, None, None, "JSON trả về thiếu các trường bắt buộc (filepath, new_code, description)."
+
+                if not os.path.exists(filepath):
+                    return None, None, None, f"AI đề xuất sửa file không tồn tại: {filepath}"
+                
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    original_content = f.read()
+                if original_content == new_content:
+                    return None, None, None, "Nội dung AI đề xuất giống hệt file gốc."
+
+                print("🤖 [AI X] Đã nhận được đề xuất JSON hợp lệ.")
+                return filepath, new_content, description, None
+            except json.JSONDecodeError:
+                return None, None, None, "AI trả về chuỗi không phải là JSON hợp lệ."
         else:
-            return None, None, None, "AI không trả về nội dung theo định dạng <change>..."
+            return None, None, None, "AI không trả về nội dung theo định dạng JSON..."
 
     except Exception as e:
         print(f"❌ Lỗi khi gọi Gemini API cho AI X: {e}")
@@ -116,7 +122,6 @@ def validate_and_commit_changes(filepath: str, new_content: str, description: st
         print(f"📝 Đã ghi đè thành công file: {filepath}")
         
         subprocess.run(["git", "add", filepath], check=True)
-        # Sử dụng description từ AI để tạo commit message
         commit_message = f"feat(AI): {description}"
         subprocess.run(["git", "commit", "-m", commit_message], check=True)
         print(f"🚀 [Z] Đã tạo commit mới: '{commit_message}'")
@@ -136,12 +141,14 @@ def validate_and_commit_changes(filepath: str, new_content: str, description: st
             os.remove(temp_filepath)
 
 
-# --- LUỒNG CHÍNH ĐƯỢC CẬP NHẬT ---
+# --- LUỒNG CHÍNH VỚI CƠ CHẾ THỬ LẠI (RETRY) ---
 
 def main():
-    """Hàm chính chứa vòng lặp và quản lý lịch sử bền vững."""
+    """Hàm chính chứa vòng lặp, quản lý lịch sử và cơ chế thử lại."""
     setup()
     
+    MAX_AI_X_RETRIES = 3 # Số lần thử lại tối đa cho AI X
+
     history_log = []
     if os.path.exists(LOG_FILE_PATH):
         try:
@@ -163,16 +170,31 @@ def main():
             
             log_entry = { "iteration": iteration_count, "status": "", "reason": "" }
             source_context = get_source_code_context()
-            filepath, new_content, description, failure_reason = invoke_ai_x(source_context, history_log)
             
+            # --- BẮT ĐẦU VÒNG LẶP THỬ LẠI ---
+            filepath, new_content, description, failure_reason = None, None, None, ""
+            for attempt in range(MAX_AI_X_RETRIES):
+                print(f"  (Lần thử {attempt + 1}/{MAX_AI_X_RETRIES} cho AI X...)")
+                filepath, new_content, description, failure_reason = invoke_ai_x(source_context, history_log)
+                if filepath and new_content and description:
+                    # Thành công, thoát khỏi vòng lặp thử lại
+                    break 
+                else:
+                    print(f"  AI X thất bại lần {attempt + 1}. Lý do: {failure_reason}")
+                    if attempt < MAX_AI_X_RETRIES - 1:
+                        time.sleep(5) # Chờ một chút trước khi thử lại
+            # --- KẾT THÚC VÒNG LẶP THỬ LẠI ---
+
             if filepath and new_content and description:
                 status, final_reason = validate_and_commit_changes(filepath, new_content, description)
                 log_entry["status"] = status
                 log_entry["reason"] = final_reason
             else:
-                print(f"❌ AI X không tạo ra đề xuất hợp lệ. Lý do: {failure_reason}")
+                # Ghi lại lý do thất bại cuối cùng sau tất cả các lần thử
+                final_failure_reason = f"AI X thất bại sau {MAX_AI_X_RETRIES} lần thử. Lý do cuối cùng: {failure_reason}"
+                print(f"❌ {final_failure_reason}")
                 log_entry["status"] = "NO_PROPOSAL"
-                log_entry["reason"] = failure_reason
+                log_entry["reason"] = final_failure_reason
             
             history_log.append(log_entry)
             with open(LOG_FILE_PATH, "w", encoding="utf-8") as f:

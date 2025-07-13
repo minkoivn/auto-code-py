@@ -13,5 +13,35 @@
         "iteration": 3,
         "status": "COMMITTED",
         "reason": "feat(AI): Tự động cải tiến file main.py"
+    },
+    {
+        "iteration": 4,
+        "status": "NO_PROPOSAL",
+        "reason": "AI không trả về nội dung theo định dạng <change>..."
+    },
+    {
+        "iteration": 5,
+        "status": "NO_PROPOSAL",
+        "reason": "AI không trả về nội dung theo định dạng <change>..."
+    },
+    {
+        "iteration": 6,
+        "status": "COMMITTED",
+        "reason": "Thêm một bình luận TODO để gợi ý cải tiến trong tương lai."
+    },
+    {
+        "iteration": 7,
+        "status": "NO_PROPOSAL",
+        "reason": "AI không trả về nội dung theo định dạng <change>..."
+    },
+    {
+        "iteration": 8,
+        "status": "NO_PROPOSAL",
+        "reason": "AI không trả về nội dung theo định dạng <change>..."
+    },
+    {
+        "iteration": 9,
+        "status": "NO_PROPOSAL",
+        "reason": "AI không trả về nội dung theo định dạng <change>..."
     }
 ]
