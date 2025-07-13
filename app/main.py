@@ -14,6 +14,7 @@ def run_application():
         logging.info("Ứng dụng đã bắt đầu chạy")
         version = os.environ.get('VERSION')
         if version:
+            logging.info(f"Biến môi trường VERSION được tìm thấy: {version}")
             try:
                 version = int(version) # Kiểm tra xem VERSION có phải là số nguyên
                 logging.info(f"Đã lấy phiên bản từ biến môi trường: {version}")
