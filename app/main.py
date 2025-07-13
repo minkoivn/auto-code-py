@@ -1,5 +1,6 @@
 import logging
 import os
+import argparse
 
 # Di chuyển hằng số ra cấp module để dễ quản lý hơn
 DEFAULT_APPLICATION_VERSION: int = 1
@@ -15,33 +16,39 @@ class Application:
         """Cấu hình cài đặt logging cơ bản cho ứng dụng."""
         logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(filename)s - %(lineno)d - %(message)s')
 
-    def __init__(self) -> None:
+    def __init__(self, cli_version: int | None = None) -> None:
         """
         Khởi tạo đối tượng Application, bao gồm việc lấy phiên bản ứng dụng
-        từ biến môi trường hoặc sử dụng mặc định.
+        từ biến môi trường, đối số dòng lệnh, hoặc sử dụng mặc định.
         """
-        self.version: int = self._get_application_version()
+        self.version: int = self._get_application_version(cli_version)
 
-    def _get_application_version(self) -> int:
+    def _get_application_version(self, cli_version: int | None = None) -> int:
         """
-        Xử lý logic lấy phiên bản ứng dụng từ biến môi trường hoặc sử dụng mặc định.
-        Bao gồm kiểm tra, chuyển đổi kiểu và ghi log chi tiết.
+        Xử lý logic lấy phiên bản ứng dụng từ đối số dòng lệnh, biến môi trường,
+        hoặc sử dụng mặc định. Bao gồm kiểm tra, chuyển đổi kiểu và ghi log chi tiết.
+        Ưu tiên: Đối số dòng lệnh > Biến môi trường > Mặc định.
         """
-        version_str: str | None = os.environ.get('VERSION')
-        application_version: int = DEFAULT_APPLICATION_VERSION # Sử dụng hằng số từ cấp module
+        application_version: int = DEFAULT_APPLICATION_VERSION
         source: str = "mặc định"
 
-        if version_str:
-            logging.info(f"Biến môi trường VERSION được tìm thấy: '{version_str}'")
-            try:
-                version_int: int = int(version_str) # Kiểm tra xem VERSION có phải là số nguyên
-                application_version = version_int
-                source = "biến môi trường"
-                logging.info(f"Đã chuyển đổi VERSION thành số nguyên: {application_version}")
-            except ValueError:
-                logging.warning(f"Biến môi trường VERSION '{version_str}' không phải là số nguyên hợp lệ. Sử dụng phiên bản mặc định.")
+        if cli_version is not None:
+            application_version = cli_version
+            source = "đối số dòng lệnh"
+            logging.info(f"Phiên bản được chỉ định qua đối số dòng lệnh: {cli_version}")
         else:
-            logging.info("Biến môi trường VERSION không được đặt. Sử dụng phiên bản mặc định.")
+            version_str: str | None = os.environ.get('VERSION')
+            if version_str:
+                logging.info(f"Biến môi trường VERSION được tìm thấy: '{version_str}'")
+                try:
+                    version_int: int = int(version_str)
+                    application_version = version_int
+                    source = "biến môi trường"
+                    logging.info(f"Đã chuyển đổi VERSION từ biến môi trường thành số nguyên: {application_version}")
+                except ValueError:
+                    logging.warning(f"Biến môi trường VERSION '{version_str}' không phải là số nguyên hợp lệ. Sử dụng phiên bản mặc định.")
+            else:
+                logging.info("Biến môi trường VERSION không được đặt. Sử dụng phiên bản mặc định.")
         
         logging.info(f"Phiên bản được sử dụng: {application_version} (nguồn: {source})")
         return application_version
@@ -63,5 +70,12 @@ class Application:
 
 if __name__ == "__main__":
     Application.setup_logging()
-    app = Application()
+
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description="Chạy Project A với phiên bản được chỉ định.")
+    parser.add_argument('--version', type=int, help=f"Chỉ định phiên bản ứng dụng (mặc định: {DEFAULT_APPLICATION_VERSION}).")
+    args = parser.parse_args()
+
+    # Pass the parsed version to the Application constructor
+    app = Application(cli_version=args.version)
     app.run()
