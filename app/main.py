@@ -10,6 +10,11 @@ class Application:
     """
     DEFAULT_APPLICATION_VERSION: int = 1 # Định nghĩa hằng số phiên bản mặc định bên trong lớp
 
+    @staticmethod
+    def setup_logging() -> None:
+        """Cấu hình cài đặt logging cơ bản cho ứng dụng."""
+        logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(filename)s - %(lineno)d - %(message)s')
+
     def __init__(self) -> None:
         """
         Khởi tạo đối tượng Application, bao gồm việc lấy phiên bản ứng dụng
@@ -55,13 +60,8 @@ class Application:
         finally:
             logging.info("Ứng dụng đã kết thúc")
 
-def _setup_logging() -> None:
-    """Cấu hình cài đặt logging cơ bản cho ứng dụng."""
-    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(filename)s - %(lineno)d - %(message)s')
-
-# Gọi hàm cấu hình logging ngay lập tức
-_setup_logging()
 
 if __name__ == "__main__":
+    Application.setup_logging()
     app = Application()
     app.run()
