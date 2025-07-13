@@ -1,4 +1,6 @@
 # app/main.py
+"""Module chính của Project A."""
+
 def run_application():
     """
     Đây là hàm chính của ứng dụng.
