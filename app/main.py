@@ -21,6 +21,7 @@ def run_application():
                 logging.warning("Biến môi trường VERSION không phải là số nguyên. Sử dụng phiên bản mặc định.")
                 version = 1
         else:
+            logging.info("Biến môi trường VERSION không được đặt. Sử dụng phiên bản mặc định.")
             version = 1
         logging.info(f"Phiên bản đang sử dụng: {version}")
         print(f"Hello from Project A - Version {version}")
