@@ -3,10 +3,25 @@ import os
 import subprocess
 import json
 import re
+import time
+import py_compile
 from dotenv import load_dotenv
 import google.generativeai as genai
 
-# --- CÁC HÀM TƯƠNG TÁC VỚI AI THẬT ---
+# --- HÀM TIỆN ÍCH MỚI ---
+def clean_response_text(text: str) -> str:
+    """
+    Dọn dẹp văn bản phản hồi từ AI một cách triệt để:
+    - Thay thế các ký tự khoảng trắng không chuẩn (non-breaking space).
+    - Chuẩn hóa ký tự xuống dòng (loại bỏ \r).
+    """
+    # \u00A0 là ký tự non-breaking space
+    cleaned_text = text.replace("\u00A0", " ")
+    # Loại bỏ ký tự carriage return \r để chỉ còn \n
+    cleaned_text = cleaned_text.replace("\r", "")
+    return cleaned_text
+
+# --- CÁC HÀM TƯƠNG TÁC VỚI AI ĐƯỢC NÂNG CẤP ---
 
 def setup():
     """Tải biến môi trường và cấu hình API Key cho Gemini."""
@@ -36,19 +51,31 @@ def invoke_ai_x(context):
     with open("orchestrator/prompts/x_prompt.txt", "r", encoding="utf-8") as f:
         prompt_template = f.read()
     
-    model = genai.GenerativeModel('gemini-1.5-flash-latest')
+    model = genai.GenerativeModel('gemini-2.5-flash')
     prompt = f"{prompt_template}\n\n{context}"
     
     try:
         response = model.generate_content(prompt)
-        # Trích xuất nội dung diff một cách an toàn
-        diff_match = re.search(r'diff --git.*', response.text, re.DOTALL)
+        # ÁP DỤNG HÀM DỌN DẸP
+        text = clean_response_text(response.text)
+        
+        print("\n" + "-"*20 + " PHẢN HỒI THÔ TỪ GEMINI (AI X) " + "-"*20)
+        print(text)
+        print("-"*(42 + len(" PHẢN HỒI THÔ TỪ GEMINI (AI X) ")) + "\n")
+
+        diff_match = re.search(r'```(?:diff)?\s*(diff --git.*)```', text, re.DOTALL)
         if diff_match:
-            print("🤖 [AI X] Đã nhận được đề xuất hợp lệ.")
-            return diff_match.group(0)
-        else:
-            print("🤖 [AI X] Phản hồi không chứa định dạng diff hợp lệ.")
-            return None
+            print("🤖 [AI X] Đã trích xuất diff từ khối markdown.")
+            return diff_match.group(1).strip()
+
+        diff_match = re.search(r'diff --git.*', text, re.DOTALL)
+        if diff_match:
+            print("🤖 [AI X] Đã nhận được đề xuất diff thuần túy.")
+            return diff_match.group(0).strip()
+            
+        print("🤖 [AI X] Phản hồi không chứa định dạng diff hợp lệ.")
+        return None
+        
     except Exception as e:
         print(f"❌ Lỗi khi gọi Gemini API cho AI X: {e}")
         return None
@@ -59,13 +86,19 @@ def invoke_ai_y(diff):
     with open("orchestrator/prompts/y_prompt.txt", "r", encoding="utf-8") as f:
         prompt_template = f.read()
 
-    model = genai.GenerativeModel('gemini-1.5-flash-latest')
+    model = genai.GenerativeModel('gemini-2.5-flash')
     prompt = f"{prompt_template}\n\n{diff}"
 
     try:
         response = model.generate_content(prompt)
-        # Trích xuất nội dung JSON từ phản hồi
-        json_match = re.search(r'\{.*\}', response.text, re.DOTALL)
+        # ÁP DỤNG HÀM DỌN DẸP
+        text = clean_response_text(response.text)
+
+        print("\n" + "-"*20 + " PHẢN HỒI THÔ TỪ GEMINI (AI Y) " + "-"*20)
+        print(text)
+        print("-"*(42 + len(" PHẢN HỒI THÔ TỪ GEMINI (AI Y) ")) + "\n")
+
+        json_match = re.search(r'\{.*\}', text, re.DOTALL)
         if json_match:
             print("🧐 [AI Y] Đã nhận được đánh giá.")
             return json.loads(json_match.group(0))
@@ -76,64 +109,98 @@ def invoke_ai_y(diff):
         print(f"❌ Lỗi khi gọi Gemini API cho AI Y: {e}")
         return {"decision": "rejected", "reason": f"API call failed: {e}"}
 
-# --- HÀM THỰC THI (KHÔNG ĐỔI) ---
+# --- CÁC HÀM VALIDATE, ROLLBACK, COMMIT ĐƯỢC CẬP NHẬT ---
 
-def execute_z_commit_and_push(diff, reason):
-    """Áp dụng bản vá và commit thay đổi."""
+def validate_changes():
+    """Kiểm tra xem mã nguồn trong thư mục 'app' có lỗi cú pháp không."""
+    print("🔍 [VALIDATOR] Đang kiểm tra tính hợp lệ của mã nguồn mới...")
+    for root, _, files in os.walk("app"):
+        for file in files:
+            if file.endswith(".py"):
+                filepath = os.path.join(root, file)
+                try:
+                    py_compile.compile(filepath, doraise=True)
+                except py_compile.PyCompileError as e:
+                    print(f"❌ LỖI CÚ PHÁP NGHIÊM TRỌNG trong file {filepath}: {e}")
+                    return False
+    print("✅ [VALIDATOR] Mã nguồn hợp lệ.")
+    return True
+
+def rollback_changes():
+    """Sử dụng Git để hủy bỏ tất cả các thay đổi chưa được commit."""
+    print("🔙 [ROLLBACK] Phát hiện lỗi! Đang khôi phục phiên bản ổn định trước đó...")
+    try:
+        subprocess.run(["git", "reset", "--hard", "HEAD"], check=True, capture_output=True)
+        print("🔙 [ROLLBACK] Khôi phục thành công.")
+    except subprocess.CalledProcessError as e:
+        # Cập nhật xử lý lỗi ở đây
+        error_message = e.stderr.decode() if e.stderr else "Không có thông tin lỗi stderr."
+        print(f"❌ Lỗi nghiêm trọng khi đang rollback: {error_message}")
+
+def apply_and_commit_changes(diff, reason):
+    """Áp dụng bản vá, kiểm tra lỗi, và commit nếu hợp lệ."""
     print("🚀 [Z] Bắt đầu quá trình thực thi...")
     patch_file = "change.patch"
     with open(patch_file, "w", encoding="utf-8") as f:
         f.write(diff)
 
     try:
-        subprocess.run(["git", "apply", patch_file], check=True, capture_output=True)
-        print("🚀 [Z] Áp dụng bản vá thành công.")
+        subprocess.run(["git", "apply", "--reject", "--whitespace=fix", patch_file], check=True)
+        print("🚀 [Z] Tạm thời áp dụng bản vá.")
 
-        # `git add .` để tự động thêm các file đã thay đổi
-        subprocess.run(["git", "add", "."], check=True)
-
-        commit_message = f"feat(AI): {reason}"
-        subprocess.run(["git", "commit", "-m", commit_message], check=True)
-        print(f"🚀 [Z] Đã tạo commit mới với thông điệp: '{commit_message}'")
+        if validate_changes():
+            print("🚀 [Z] Thay đổi an toàn. Tiến hành commit...")
+            subprocess.run(["git", "add", "."], check=True)
+            commit_message = f"feat(AI): {reason}"
+            subprocess.run(["git", "commit", "-m", commit_message], check=True)
+            print(f"🚀 [Z] Đã tạo commit mới: '{commit_message}'")
+        else:
+            rollback_changes()
 
     except subprocess.CalledProcessError as e:
-        print(f"❌ Lỗi khi thực thi Git: {e.stderr.decode()}")
+        print("❌ Lỗi khi áp dụng bản vá. Có thể do xung đột (conflict). Tiến hành rollback.")
+        # Cập nhật xử lý lỗi ở đây
+        error_message = e.stderr.decode() if e.stderr else "Không có thông tin lỗi stderr."
+        print(f"   Chi tiết lỗi: {error_message}")
+        rollback_changes()
     finally:
         if os.path.exists(patch_file):
             os.remove(patch_file)
 
-# --- LUỒNG CHÍNH ---
+# --- LUỒNG CHÍNH (KHÔNG ĐỔI) ---
 
 def main():
-    print("--- BẮT ĐẦU CHU TRÌNH TIẾN HÓA VỚI AI THẬT ---")
-    
+    """Hàm chính chứa vòng lặp vô tận để hệ thống tự tiến hóa."""
+    setup()
+    iteration_count = 0
     try:
-        setup()
-        
-        # 1. Lấy bối cảnh mã nguồn
-        source_context = get_source_code_context()
-        
-        # 2. AI X tạo đề xuất
-        proposed_diff = invoke_ai_x(source_context)
-        
-        # 3. AI Y kiểm duyệt
-        if proposed_diff:
-            review = invoke_ai_y(proposed_diff)
+        while True:
+            iteration_count += 1
+            print("\n" + "="*50)
+            print(f"🎬 BẮT ĐẦU CHU TRÌNH TIẾN HÓA LẦN THỨ {iteration_count}")
+            print("="*50)
             
-            # 4. Z thực thi nếu được chấp thuận
-            if review and review.get("decision") == "approved":
-                execute_z_commit_and_push(proposed_diff, review.get("reason"))
+            source_context = get_source_code_context()
+            proposed_diff = invoke_ai_x(source_context)
+            
+            if proposed_diff:
+                review = invoke_ai_y(proposed_diff)
+                
+                if review and review.get("decision") == "approved":
+                    apply_and_commit_changes(proposed_diff, review.get("reason"))
+                else:
+                    reason = review.get('reason', 'No reason provided.')
+                    print(f"❌ Thay đổi đã bị từ chối bởi AI Y. Lý do: {reason}")
             else:
-                reason = review.get('reason', 'No reason provided.')
-                print(f"❌ Thay đổi đã bị từ chối. Lý do: {reason}")
-        else:
-            print("❌ Không có đề xuất nào được tạo.")
+                print("❌ AI X không tạo ra đề xuất nào trong lần này.")
             
+            print(f"⏳ Tạm nghỉ 15 giây trước khi bắt đầu chu trình tiếp theo...")
+            time.sleep(15)
+
+    except KeyboardInterrupt:
+        print("\n\n🛑 Đã nhận tín hiệu dừng. Kết thúc chương trình.")
     except Exception as e:
-        print(f"⛔ Đã xảy ra lỗi nghiêm trọng trong luồng chính: {e}")
-
-    print("--- KẾT THÚC CHU TRÌNH ---")
-
+        print(f"⛔ Đã xảy ra lỗi không xác định: {e}")
 
 if __name__ == "__main__":
     main()
