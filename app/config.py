@@ -1,0 +1,4 @@
+# config.py
+
+DEFAULT_APPLICATION_VERSION: int = 1
+APPLICATION_NAME: str = "Project A"
