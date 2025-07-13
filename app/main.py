@@ -14,6 +14,13 @@ class Application:
         """Cấu hình cài đặt logging cơ bản cho ứng dụng."""
         logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(filename)s - %(lineno)d - %(message)s')
 
+    @staticmethod
+    def _parse_cli_arguments() -> argparse.Namespace:
+        """Phân tích các đối số dòng lệnh cho ứng dụng, bao gồm tùy chọn phiên bản."""
+        parser = argparse.ArgumentParser(description="Chạy Project A với phiên bản được chỉ định.")
+        parser.add_argument('--version', type=int, help=f"Chỉ định phiên bản ứng dụng (mặc định: {DEFAULT_APPLICATION_VERSION}).")
+        return parser.parse_args()
+
     def __init__(self, cli_version: int | None = None) -> None:
         """
         Khởi tạo đối tượng Application, bao gồm việc lấy phiên bản ứng dụng
@@ -69,11 +76,9 @@ class Application:
 if __name__ == "__main__":
     Application.setup_logging()
 
-    # Parse command line arguments
-    parser = argparse.ArgumentParser(description="Chạy Project A với phiên bản được chỉ định.")
-    parser.add_argument('--version', type=int, help=f"Chỉ định phiên bản ứng dụng (mặc định: {DEFAULT_APPLICATION_VERSION}).")
-    args = parser.parse_args()
+    # Phân tích các đối số dòng lệnh bằng phương thức mới
+    args = Application._parse_cli_arguments()
 
-    # Pass the parsed version to the Application constructor
+    # Chuyển phiên bản đã phân tích vào hàm tạo của Application
     app = Application(cli_version=args.version)
     app.run()
