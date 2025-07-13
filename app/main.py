@@ -3,7 +3,7 @@
 
 def run_application():
     """
-    Đây là hàm chính của ứng dụng. Hiện tại rất sơ sài nhưng tương lai sẽ là một tuyệt tác công nghệ.
+    Đây là hàm khởi tạo và chạy ứng dụng Project A.
     """
 
     # In ra một thông điệp chào mừng khi ứng dụng khởi chạy
