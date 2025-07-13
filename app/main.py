@@ -2,7 +2,7 @@
 """Đây là module chính của Project A."""
 import logging
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(filename)s - %(lineno)d - %(message)s')
 
 def run_application():
     """
@@ -15,7 +15,7 @@ def run_application():
         print("Hello from Project A - Version 1")
         logging.info("Ứng dụng đã chạy xong")
     except Exception as e:
-        logging.error(f"Lỗi trong quá trình chạy ứng dụng: {e}")
+        logging.exception(f"Lỗi trong quá trình chạy ứng dụng: {e}")
 
 if __name__ == "__main__":
     run_application()
