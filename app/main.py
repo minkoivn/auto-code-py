@@ -1,12 +1,11 @@
 # app/main.py
-"""Module chính của Project A."""
-
+"""Đây là module chính của Project A."""
 def run_application():
     """
-    Đây là hàm khởi tạo và chạy ứng dụng Project A.
+    Đây là hàm chính của ứng dụng.
+    Hiện tại nó chỉ in ra một thông điệp.
     """
-
-    # In ra một thông điệp chào mừng khi ứng dụng khởi chạy
+    # TODO: Cân nhắc đưa phiên bản ra biến cấu hình
     print("Hello from Project A - Version 1")
 
 if __name__ == "__main__":
