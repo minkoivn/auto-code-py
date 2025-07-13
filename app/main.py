@@ -1,6 +1,4 @@
 import logging
-import argparse
-from config import DEFAULT_APPLICATION_VERSION
 from app.utils import setup_logging, get_application_version, parse_cli_arguments
 
 
@@ -10,12 +8,11 @@ class Application:
     Xử lý logic lấy phiên bản và chạy ứng dụng.
     """
 
-    def __init__(self, cli_version: int | None = None) -> None:
+    def __init__(self, version: int) -> None:
         """
-        Khởi tạo đối tượng Application, bao gồm việc lấy phiên bản ứng dụng
-        từ biến môi trường, đối số dòng lệnh, hoặc sử dụng mặc định.
+        Khởi tạo đối tượng Application với phiên bản đã được xác định.
         """
-        self.version: int = get_application_version(cli_version)
+        self.version: int = version
 
     def run(self) -> None:
         """
@@ -35,9 +32,12 @@ class Application:
 if __name__ == "__main__":
     setup_logging()
 
-    # Phân tích các đối số dòng lệnh bằng phương thức mới
+    # Phân tích các đối số dòng lệnh
     args = parse_cli_arguments()
 
-    # Chuyển phiên bản đã phân tích vào hàm tạo của Application
-    app = Application(cli_version=args.version)
+    # Lấy phiên bản cuối cùng sau khi xem xét tất cả các nguồn
+    final_version = get_application_version(args.version)
+
+    # Khởi tạo và chạy ứng dụng với phiên bản đã xác định
+    app = Application(version=final_version)
     app.run()
