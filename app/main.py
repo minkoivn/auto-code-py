@@ -13,6 +13,8 @@ def run_application():
     try:
         logging.info("Ứng dụng đã bắt đầu chạy")
         version = os.environ.get('VERSION', '1') # Lấy version từ biến môi trường, mặc định là 1 nếu không có
+        if version != '1':
+            logging.info(f"Đã lấy phiên bản từ biến môi trường: {version}")
         print(f"Hello from Project A - Version {version}")
         logging.info("Ứng dụng đã chạy xong")
     except Exception as e:
