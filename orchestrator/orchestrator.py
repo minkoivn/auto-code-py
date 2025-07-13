@@ -60,7 +60,7 @@ def invoke_ai_x(context: str, history_log: list):
     prompt_filled_history = prompt_template.replace("{history_context}", history_context)
     prompt = f"{prompt_filled_history}\n\n{context}"
     
-    model = genai.GenerativeModel('gemini-1.5-flash-latest')
+    model = genai.GenerativeModel('gemini-2.5-flash')
     try:
         response = model.generate_content(prompt)
         text = response.text.replace("\u00A0", " ").replace("\r", "")
@@ -68,7 +68,6 @@ def invoke_ai_x(context: str, history_log: list):
         # Cập nhật regex để tìm khối JSON
         match = re.search(r'```json\s*(\{.*?\})\s*```', text, re.DOTALL)
         if not match:
-            # Fallback nếu AI không dùng backticks
             match = re.search(r'(\{.*?\})', text, re.DOTALL)
 
         if match:
@@ -82,13 +81,12 @@ def invoke_ai_x(context: str, history_log: list):
                 if not all([filepath, new_content, description]):
                     return None, None, None, "JSON trả về thiếu các trường bắt buộc (filepath, new_code, description)."
 
-                if not os.path.exists(filepath):
-                    return None, None, None, f"AI đề xuất sửa file không tồn tại: {filepath}"
-                
-                with open(filepath, 'r', encoding='utf-8') as f:
-                    original_content = f.read()
-                if original_content == new_content:
-                    return None, None, None, "Nội dung AI đề xuất giống hệt file gốc."
+                # Nếu là file đã tồn tại, kiểm tra xem có thay đổi không
+                if os.path.exists(filepath):
+                    with open(filepath, 'r', encoding='utf-8') as f:
+                        original_content = f.read()
+                    if original_content == new_content:
+                        return None, None, None, "Nội dung AI đề xuất giống hệt file gốc."
 
                 print("🤖 [AI X] Đã nhận được đề xuất JSON hợp lệ.")
                 return filepath, new_content, description, None
@@ -106,12 +104,19 @@ def invoke_ai_x(context: str, history_log: list):
 
 def validate_and_commit_changes(filepath: str, new_content: str, description: str):
     """
-    Kiểm tra cú pháp, nếu hợp lệ thì ghi đè và commit với mô tả được cung cấp.
+    Kiểm tra cú pháp, nếu hợp lệ thì ghi đè/tạo mới và commit.
     Trả về một tuple (status, final_reason).
     """
     print(f"🚀 [Z] Bắt đầu quá trình thực thi cho file: {filepath}")
     temp_filepath = filepath + ".tmp"
+    is_new_file = not os.path.exists(filepath)
+    
     try:
+        # Đảm bảo thư mục cho file mới tồn tại
+        dir_name = os.path.dirname(filepath)
+        if dir_name:
+            os.makedirs(dir_name, exist_ok=True)
+
         with open(temp_filepath, "w", encoding="utf-8") as f:
             f.write(new_content)
         
@@ -119,7 +124,8 @@ def validate_and_commit_changes(filepath: str, new_content: str, description: st
         print("✅ [VALIDATOR] Mã nguồn mới hợp lệ.")
 
         os.replace(temp_filepath, filepath)
-        print(f"📝 Đã ghi đè thành công file: {filepath}")
+        action_verb = "Tạo mới" if is_new_file else "Ghi đè"
+        print(f"📝 {action_verb} thành công file: {filepath}")
         
         subprocess.run(["git", "add", filepath], check=True)
         commit_message = f"feat(AI): {description}"
@@ -147,7 +153,7 @@ def main():
     """Hàm chính chứa vòng lặp, quản lý lịch sử và cơ chế thử lại."""
     setup()
     
-    MAX_AI_X_RETRIES = 3 # Số lần thử lại tối đa cho AI X
+    MAX_AI_X_RETRIES = 3
 
     history_log = []
     if os.path.exists(LOG_FILE_PATH):
@@ -171,26 +177,22 @@ def main():
             log_entry = { "iteration": iteration_count, "status": "", "reason": "" }
             source_context = get_source_code_context()
             
-            # --- BẮT ĐẦU VÒNG LẶP THỬ LẠI ---
             filepath, new_content, description, failure_reason = None, None, None, ""
             for attempt in range(MAX_AI_X_RETRIES):
                 print(f"  (Lần thử {attempt + 1}/{MAX_AI_X_RETRIES} cho AI X...)")
                 filepath, new_content, description, failure_reason = invoke_ai_x(source_context, history_log)
                 if filepath and new_content and description:
-                    # Thành công, thoát khỏi vòng lặp thử lại
                     break 
                 else:
                     print(f"  AI X thất bại lần {attempt + 1}. Lý do: {failure_reason}")
                     if attempt < MAX_AI_X_RETRIES - 1:
-                        time.sleep(5) # Chờ một chút trước khi thử lại
-            # --- KẾT THÚC VÒNG LẶP THỬ LẠI ---
+                        time.sleep(5)
 
             if filepath and new_content and description:
                 status, final_reason = validate_and_commit_changes(filepath, new_content, description)
                 log_entry["status"] = status
                 log_entry["reason"] = final_reason
             else:
-                # Ghi lại lý do thất bại cuối cùng sau tất cả các lần thử
                 final_failure_reason = f"AI X thất bại sau {MAX_AI_X_RETRIES} lần thử. Lý do cuối cùng: {failure_reason}"
                 print(f"❌ {final_failure_reason}")
                 log_entry["status"] = "NO_PROPOSAL"
