@@ -1,7 +1,7 @@
 import logging
 import argparse
 from config import DEFAULT_APPLICATION_VERSION
-from app.utils import setup_logging, get_application_version
+from app.utils import setup_logging, get_application_version, parse_cli_arguments
 
 
 class Application:
@@ -9,13 +9,6 @@ class Application:
     Lớp đại diện cho ứng dụng Project A.
     Xử lý logic lấy phiên bản và chạy ứng dụng.
     """
-
-    @staticmethod
-    def _parse_cli_arguments() -> argparse.Namespace:
-        """Phân tích các đối số dòng lệnh cho ứng dụng, bao gồm tùy chọn phiên bản."""
-        parser = argparse.ArgumentParser(description="Chạy Project A với phiên bản được chỉ định.")
-        parser.add_argument('--version', type=int, help=f"Chỉ định phiên bản ứng dụng (mặc định: {DEFAULT_APPLICATION_VERSION}).")
-        return parser.parse_args()
 
     def __init__(self, cli_version: int | None = None) -> None:
         """
@@ -43,7 +36,7 @@ if __name__ == "__main__":
     setup_logging()
 
     # Phân tích các đối số dòng lệnh bằng phương thức mới
-    args = Application._parse_cli_arguments()
+    args = parse_cli_arguments()
 
     # Chuyển phiên bản đã phân tích vào hàm tạo của Application
     app = Application(cli_version=args.version)
