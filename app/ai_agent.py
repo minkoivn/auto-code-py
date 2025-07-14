@@ -1,102 +1,81 @@
+import logging
 import os
 import json
 import re
 import google.generativeai as genai
-from google.generativeai.types import StopCandidateException # Import specific exception
-from config import PROMPT_FILE_PATH, AI_MODEL_NAME
-from utils import format_history_for_prompt
-from logging_setup import logger # Import the logger
+from dotenv import load_dotenv
+from config import config
+from git_utils import git_log_last_n_commits # Sửa: import đúng tên hàm
+from google.api_core.exceptions import GoogleAPICallError, RetryError
 
-def _process_ai_response_json(ai_raw_text: str) -> tuple[str, str, str]:
-    """
-    Xử lý chuỗi phản hồi thô từ AI, trích xuất JSON, kiểm tra cấu trúc
-    và chuẩn hóa đường dẫn file.
-    Raise ValueError nếu phản hồi không hợp lệ hoặc thiếu trường.
-    """
-    text = ai_raw_text.replace("\u00A0", " ").replace("\r", "")
+load_dotenv()
+logger = logging.getLogger(__name__)
 
-    # Ưu tiên tìm khối JSON được bọc trong ```json
-    match = re.search(r'```json\s*({.*?})\s*```', text, re.DOTALL)
+genai.configure(api_key=config.GEMINI_API_KEY)
+model = genai.GenerativeModel(config.AI_MODEL_NAME)
+
+def _process_ai_z_response(response_text: str) -> tuple[str | None, list[str] | None]:
+    """Trích xuất JSON từ phản hồi của AI Z."""
+    match = re.search(r'```json\s*({.*?})\s*```', response_text, re.DOTALL)
     if not match:
-        # Nếu không tìm thấy, thử tìm bất kỳ đối tượng JSON nào
-        match = re.search(r'({.*?})', text, re.DOTALL)
-
-    if not match:
-        raise ValueError("AI không trả về nội dung theo định dạng JSON hợp lệ.")
-
-    json_string = match.group(1)
+        logger.error("AI Z không trả về JSON hợp lệ.")
+        return None, None
+    
     try:
-        data = json.loads(json_string)
+        data = json.loads(match.group(1))
+        suggestion = data.get("suggestion")
+        relevant_files = data.get("relevant_files", [])
+        if not suggestion or not isinstance(relevant_files, list):
+            logger.error("JSON từ AI Z thiếu trường 'suggestion' hoặc 'relevant_files' không phải list.")
+            return None, None
+        return suggestion, relevant_files
     except json.JSONDecodeError:
-        raise ValueError("AI trả về chuỗi không phải là JSON hợp lệ.")
+        logger.error("Không thể giải mã JSON từ AI Z.", exc_info=True)
+        return None, None
 
-    filepath = data.get("filepath")
-    new_content = data.get("new_code")
-    description = data.get("description")
-
-    if not all([filepath, new_content, description]):
-        missing_fields = []
-        if not filepath: missing_fields.append("filepath")
-        if not new_content: missing_fields.append("new_code")
-        if not description: missing_fields.append("description")
-        raise ValueError(f"JSON trả về thiếu các trường bắt buộc: {', '.join(missing_fields)}.")
-
-    # Đảm bảo filepath bắt đầu bằng 'app/' nếu chưa có
-    if filepath and not filepath.startswith("app/"):
-        filepath = "app/" + filepath
-        
-    return filepath, new_content, description
-
-def invoke_ai_x(context: str, history_log: list):
+def invoke_ai_z(user_request: str | None = None) -> tuple[str | None, list[str] | None]:
     """
-    Yêu cầu AI X trả về một đối tượng JSON chứa nội dung file mới và mô tả.
-    Trả về một tuple: (filepath, new_content, description, failure_reason)
+    Kêu gọi AI Z để nhận đề xuất và danh sách tệp liên quan.
     """
-    logger.info("🤖 [AI X] Đang kết nối Gemini, đọc lịch sử và tạo đề xuất file mới...")
-    with open(PROMPT_FILE_PATH, "r", encoding="utf-8") as f:
-        prompt_template = f.read()
+    logger.info("Đang gọi AI Z để lấy đề xuất...")
     
-    # Sử dụng hàm format_history_for_prompt từ module utils
-    history_context = format_history_for_prompt(history_log)
-    prompt_filled_history = prompt_template.replace("{history_context}", history_context)
-    prompt = f"{prompt_filled_history}\n\n{context}"
-    
-    # Log the prompt details before sending (at DEBUG level)
-    logger.debug(f"🤖 [AI X] Gửi prompt tới Gemini. Độ dài: {len(prompt)} ký tự. 1000 ký tự đầu:\n{prompt[:1000]}...")
-    
-    model = genai.GenerativeModel(AI_MODEL_NAME)
     try:
-        response = model.generate_content(prompt)
-        
-        # Log the raw response after receiving it (at DEBUG level)
-        if response and hasattr(response, 'text'):
-            logger.debug(f"🤖 [AI X] Đã nhận phản hồi thô từ Gemini (độ dài: {len(response.text)}): {response.text}")
-        else:
-            logger.debug(f"🤖 [AI X] Phản hồi từ Gemini không có thuộc tính 'text' hoặc rỗng.")
-            
-        # Bổ sung kiểm tra robust cho phản hồi API
-        if not response.candidates:
-            reason = "API Gemini trả về không có ứng cử viên (candidate). Có thể do bị chặn nội dung hoặc không tạo được phản hồi." 
-            logger.error(f"❌ Lỗi khi gọi Gemini API cho AI X: {reason}")
-            return None, None, None, reason
-        
-        if not response.text.strip():
-            reason = "API Gemini trả về phản hồi rỗng hoặc chỉ chứa khoảng trắng sau khi tạo nội dung." 
-            logger.error(f"❌ Lỗi khi gọi Gemini API cho AI X: {reason}")
-            return None, None, None, reason
-            
-        try:
-            filepath, new_content, description = _process_ai_response_json(response.text)
-            logger.info("🤖 [AI X] Đã nhận được đề xuất JSON hợp lệ.")
-            return filepath, new_content, description, None
-        except ValueError as ve:
-            # Lỗi từ hàm xử lý JSON
-            return None, None, None, str(ve)
-
-    except StopCandidateException as e:
-        reason = f"Đề xuất bị chặn do chính sách an toàn hoặc lý do khác: {e}"
-        logger.error(f"❌ Lỗi khi gọi Gemini API cho AI X (StopCandidateException): {reason}", exc_info=True)
-        return None, None, None, reason
+        # Sửa: gọi đúng tên hàm git_log_last_n_commits
+        git_history = git_log_last_n_commits(n=10, repo_path=config.REPO_DIR) 
+        history_str = "\n".join([f"- {commit['hash'][:7]}: {commit['message']}" for commit in git_history])
     except Exception as e:
-        logger.error(f"❌ Lỗi khi gọi Gemini API cho AI X: {e}", exc_info=True)
-        return None, None, None, str(e)
+        logger.error(f"Lỗi khi lấy lịch sử Git: {e}", exc_info=True)
+        history_str = "Không thể lấy lịch sử Git."
+
+    # Tải prompt từ file
+    prompt_path = os.path.join(config.APP_ROOT, "prompts", "z_prompt.txt")
+    with open(prompt_path, "r", encoding="utf-8") as f:
+        prompt_template = f.read()
+
+    # Điền thông tin vào prompt
+    from utils import get_source_code_context, format_history_for_prompt # Import local để tránh circular dependency
+    source_context = get_source_code_context()
+    history_context = format_history_for_prompt(git_history) # Sử dụng git_history đã lấy
+    
+    full_prompt = prompt_template.format(
+        source_code_context=source_context,
+        history_context=history_context,
+        user_request=user_request if user_request else "Không có yêu cầu nào."
+    )
+
+    logger.debug(f"Gửi prompt tới AI Z (độ dài: {len(full_prompt)})...")
+
+    try:
+        response = model.generate_content(full_prompt)
+        if not response.text:
+            logger.warning("AI Z trả về phản hồi rỗng.")
+            return None, None
+        
+        return _process_ai_z_response(response.text)
+
+    except (GoogleAPICallError, RetryError) as e:
+        logger.error(f"Lỗi API khi gọi AI Z: {e}", exc_info=True)
+        return None, None
+    except Exception as e:
+        logger.error(f"Lỗi không xác định khi gọi AI Z: {e}", exc_info=True)
+        return None, None

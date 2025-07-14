@@ -6,22 +6,9 @@ import time
 import py_compile
 import google.generativeai as genai
 from ai_agent import invoke_ai_x
-from config import (
-    LOG_FILE_PATH,
-    EXCLUDE_PATHS,
-    MAX_AI_X_RETRIES,
-    RETRY_SLEEP_SECONDS,
-    SLEEP_BETWEEN_ITERATIONS_SECONDS,
-    VERSION,
-    INTERACTIVE_MODE,
-    CONTROL_DIR,
-    TRIGGER_NEXT_STEP_FLAG,
-    GEMINI_API_KEY,
-    USER_REQUEST_FILE,
-    REPO_DIR # Import REPO_DIR để khởi tạo GitAgent
-)
+from config import config
 from utils import get_source_code_context
-from git_utils import GitAgent # Thay đổi: Import lớp GitAgent
+from git_utils import GitAgent
 from ai_z_agent import invoke_ai_z
 import threading
 from web_server import app as flask_app

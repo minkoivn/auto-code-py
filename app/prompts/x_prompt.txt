@@ -6,6 +6,8 @@ trang web tương tác với người dùng ở localhost:3000
 trên web nên phân chia tab debug và hiển thị riêng
 có ô để nhập yêu cầu cài thiện từ phía người dùng để AI z làm gợi ý để đề xuất chỉnh sửa lần tiếp theo sau đó xóa yêu cầu mới đó đi
 nên bổ sung cho AI Z để có thể chọn ra danh sách tệp nên truyền cho ai X để chỉnh sửa. thay vì truyền tất cả
+nên có giới hạn để chính xác được các tệp đưa vào AI, tránh đưa các tệp dư thừa hoặc quá nhiều. cả ai x và AI z đều được xem cùng một danh sách tệp
+bổ sung chức năng xóa tệp, nếu phát hiện trùng (có thể thay đổi prompt x y thoải mái, nếu z cảm thấy vậy)
 **LỊCH SỬ CÁC THAY ĐỔI GẦN ĐÂY:**
 Hãy học hỏi từ lịch sử này để đưa ra quyết định tốt hơn. Ví dụ, nếu một file trở nên quá lớn, hãy cân nhắc tạo một module mới để tách code.
 {history_context}

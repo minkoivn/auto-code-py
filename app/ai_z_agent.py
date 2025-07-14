@@ -3,8 +3,8 @@ import os
 import google.generativeai as genai
 from dotenv import load_dotenv
 
-from . import config
-from . import git_utils
+from config import config
+from git_utils import GitAgent
 from google.api_core.exceptions import ResourceExhausted, InternalServerError, Aborted, ClientError, DeadlineExceeded, RetryError, StopCandidateException
 
 load_dotenv()

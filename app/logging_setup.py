@@ -3,7 +3,7 @@
 import logging
 import os
 import json
-from config import APP_LOG_FILE_PATH
+from config import config
 
 class JsonFormatter(logging.Formatter):
     """
@@ -51,11 +51,11 @@ def setup_logging():
 
         # File handler (định dạng JSON cho việc phân tích tự động)
         # Đảm bảo thư mục cho file log tồn tại trước khi tạo FileHandler
-        log_dir = os.path.dirname(APP_LOG_FILE_PATH)
+        log_dir = os.path.dirname(config.APP_LOG_FILE_PATH)
         if log_dir and not os.path.exists(log_dir):
             os.makedirs(log_dir, exist_ok=True)
 
-        fh = logging.FileHandler(APP_LOG_FILE_PATH, encoding='utf-8')
+        fh = logging.FileHandler(config.APP_LOG_FILE_PATH, encoding='utf-8')
         fh.setLevel(logging.INFO) # Mức log cho file handler
         fh.setFormatter(JsonFormatter()) # Sử dụng JsonFormatter cho file log
         logger.addHandler(fh)

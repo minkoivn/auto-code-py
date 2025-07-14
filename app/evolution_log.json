@@ -333,5 +333,70 @@
         "iteration": 67,
         "status": "COMMITTED",
         "reason": "Chuyển đổi các câu lệnh 'print()' còn lại trong `orchestrator.py` sang sử dụng logger để duy trì tính nhất quán với hệ thống logging chung của dự án, cải thiện khả năng giám sát và gỡ lỗi."
+    },
+    {
+        "iteration": 68,
+        "status": "COMMITTED",
+        "reason": "Thêm cấu hình `LOG_LEVEL` vào `config.py` để cho phép người dùng điều chỉnh mức độ chi tiết của log thông qua biến môi trường, đặt nền tảng cho hệ thống logging cấu hình được như đề xuất của AI Z."
+    },
+    {
+        "iteration": 69,
+        "status": "COMMITTED",
+        "reason": "Nâng cấp cơ chế tạo đề xuất của AI Z bằng cách tích hợp lịch sử commit Git gần đây vào prompt. Điều này giúp AI Z đưa ra các đề xuất cải tiến dự án có bối cảnh và phù hợp hơn, thực hiện theo gợi ý của chính AI Z về việc tạo ra đầu ra động, nhận biết ngữ cảnh."
+    },
+    {
+        "iteration": 70,
+        "status": "COMMITTED",
+        "reason": "Tái cấu trúc các thao tác Git để xử lý lỗi mạnh mẽ hơn và ghi log chi tiết, bao gồm thông tin chẩn đoán đầy đủ (stdout/stderr và mã lỗi) thông qua việc giới thiệu hàm trợ giúp `_run_git_command` tập trung. Điều này giải quyết đề xuất của AI Z về việc đảm bảo các thao tác Git xử lý các điều kiện lỗi phổ biến một cách duyên dáng và ghi lại thông tin chẩn đoán đầy đủ."
+    },
+    {
+        "iteration": 71,
+        "status": "COMMITTED",
+        "reason": "Chuyển đổi `LOG_FILE_PATH` để đọc từ biến môi trường `EVOLUTION_LOG_FILE_PATH` với giá trị mặc định, nhằm nhất quán hóa việc quản lý cấu hình đường dẫn file thông qua biến môi trường, nâng cao khả năng cấu hình và tính linh hoạt của dự án."
+    },
+    {
+        "iteration": 72,
+        "status": "COMMITTED",
+        "reason": "Tích hợp tải biến môi trường từ tệp `.env` vào `config.py` để quản lý cấu hình ứng dụng linh hoạt và an toàn hơn, theo đề xuất của AI Z."
+    },
+    {
+        "iteration": 73,
+        "status": "COMMITTED",
+        "reason": "Thêm lời gọi `load_dotenv()` vào đầu tệp `main.py` để tự động tải các biến môi trường từ tệp `.env`, đảm bảo các cấu hình được tải ngay khi ứng dụng khởi động và nhất quán với đề xuất của AI Z về việc quản lý biến môi trường."
+    },
+    {
+        "iteration": 74,
+        "status": "COMMITTED",
+        "reason": "Thêm phương thức `get_status` vào lớp `Git` để thực hiện lệnh `git status` và trả về kết quả trạng thái hiện tại của kho lưu trữ, tận dụng cơ chế xử lý lỗi mạnh mẽ đã có."
+    },
+    {
+        "iteration": 75,
+        "status": "COMMITTED",
+        "reason": "Centralize validation for the mandatory GEMINI_API_KEY within config.py to ensure its presence at load time, improving configuration safety and manageability as suggested by AI Z. Also, clarify log file path definitions to distinguish between application logs and evolution history logs, and ensure they are excluded from source code context."
+    },
+    {
+        "iteration": 76,
+        "status": "COMMITTED",
+        "reason": "Thêm log tổng kết cho mỗi bước tiến hóa trong `_execute_evolution_step` để ghi nhận trạng thái và lý do kết quả, đáp ứng đề xuất của AI Z về logging chi tiết cho các sự kiện quan trọng."
+    },
+    {
+        "iteration": 77,
+        "status": "COMMITTED",
+        "reason": "Tái cấu trúc xử lý lỗi Git trong `orchestrator.py` bằng cách định nghĩa các lớp ngoại lệ tùy chỉnh (`GitError`, `GitCommandError`, `GitCommandNotFoundError`, `NotAGitRepositoryError`) và cập nhật `validate_and_commit_changes` để bắt chúng một cách cụ thể, nhằm cung cấp thông báo lỗi chi tiết hơn cho các thất bại liên quan đến Git."
+    },
+    {
+        "iteration": 78,
+        "status": "COMMITTED",
+        "reason": "Tái cấu trúc cấu hình thành một lớp `AppConfig` chuyên biệt và cung cấp một instance `config` duy nhất. Thay đổi này triển khai đề xuất của AI Z về một đối tượng cấu hình có cấu trúc, giúp tập trung quyền truy cập cấu hình và cải thiện khả năng bảo trì."
+    },
+    {
+        "iteration": 79,
+        "status": "COMMITTED",
+        "reason": "Tạo module `git_exceptions.py` để tập trung các lớp ngoại lệ liên quan đến Git, cải thiện cấu trúc mã và tuân thủ nguyên tắc tách biệt mối quan tâm, theo gợi ý từ TODO trong `orchestrator.py`."
+    },
+    {
+        "iteration": 80,
+        "status": "COMMITTED",
+        "reason": "Cải thiện chi tiết logging cho các cuộc gọi AI (AI X và AI Z) và thao tác Git bằng cách ghi lại các tham số đầu vào và kết quả đầu ra quan trọng vào log file. Đồng thời, sửa lỗi nhập các lớp ngoại lệ Git từ module `git_exceptions.py` theo lịch sử thay đổi gần đây."
     }
 ]

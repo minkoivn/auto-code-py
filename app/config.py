@@ -3,7 +3,6 @@ import os
 from dotenv import load_dotenv
 
 # Tải các biến môi trường từ .env file trước tiên và chỉ một lần.
-# (Lưu ý: main.py cũng gọi load_dotenv() ở đầu, điều này là an toàn và bất biến).
 load_dotenv()
 
 class AppConfig:
@@ -14,8 +13,8 @@ class AppConfig:
     """
     # Đường dẫn
     APP_ROOT = os.path.dirname(os.path.abspath(__file__))
-    # Giả sử thư mục gốc của repo nằm một cấp trên app/
     REPO_DIR = os.path.dirname(APP_ROOT)
+    PROJECT_ROOT = REPO_DIR # Thêm PROJECT_ROOT để tương thích với utils.py
 
     # Các file điều khiển
     CONTROL_DIR = os.path.join(REPO_DIR, ".control")
@@ -24,18 +23,15 @@ class AppConfig:
 
     # Biến môi trường và cài đặt cấu hình
     GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
-    # Xác thực GEMINI_API_KEY ngay lập tức khi tải config.py
     if not GEMINI_API_KEY:
         raise ValueError("GEMINI_API_KEY environment variable not set. Please set it in the .env file or system environment.")
 
+    AI_MODEL_NAME = os.getenv('AI_MODEL_NAME', 'gemini-pro') # Thêm model name
+
     # Đường dẫn file log cụ thể
-    APP_LOG_FILE_PATH = os.getenv('APP_LOG_FILE_PATH', 'app.log') # Dành cho log ứng dụng chung
-    EVOLUTION_LOG_FILE_PATH = os.getenv('EVOLUTION_LOG_FILE_PATH', 'evolution_log.json') # Dành cho log lịch sử tiến hóa
-
-    # LOG_FILE_PATH được import bởi orchestrator.py cho lịch sử.
-    # Nó phải ánh xạ tới EVOLUTION_LOG_FILE_PATH để nhất quán với L71.
+    APP_LOG_FILE_PATH = os.getenv('APP_LOG_FILE_PATH', 'app.log')
+    EVOLUTION_LOG_FILE_PATH = os.getenv('EVOLUTION_LOG_FILE_PATH', 'evolution_log.json')
     LOG_FILE_PATH = EVOLUTION_LOG_FILE_PATH
-
     LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO').upper()
 
     # Các tham số AI cốt lõi
@@ -44,10 +40,10 @@ class AppConfig:
     SLEEP_BETWEEN_ITERATIONS_SECONDS = int(os.getenv('SLEEP_BETWEEN_ITERATIONS_SECONDS', 10))
 
     # Các cài đặt khác
-    VERSION = "0.74.0" # Phiên bản hardcoded, lý tưởng là đọc từ git tags hoặc động
+    VERSION = "0.74.1" # Cập nhật phiên bản
     INTERACTIVE_MODE = os.getenv('INTERACTIVE_MODE', 'False').lower() == 'true'
 
-    # Các đường dẫn cần loại trừ khỏi bối cảnh mã nguồn (cho get_source_code_context)
+    # Các đường dẫn cần loại trừ
     EXCLUDE_PATHS = [
         ".git",
         "__pycache__",
@@ -57,10 +53,13 @@ class AppConfig:
         "node_modules",
         "venv",
         ".env",
-        CONTROL_DIR, # Loại trừ nội dung thư mục điều khiển
-        APP_LOG_FILE_PATH, # Loại trừ file log ứng dụng chung khỏi bối cảnh
-        EVOLUTION_LOG_FILE_PATH # Loại trừ file log lịch sử tiến hóa khỏi bối cảnh
+        CONTROL_DIR,
+        APP_LOG_FILE_PATH,
+        EVOLUTION_LOG_FILE_PATH
     ]
+    
+    # Thêm đường dẫn prompt cho AI X
+    PROMPT_FILE_PATH = os.path.join(APP_ROOT, "prompts", "x_prompt.txt")
 
-# Tạo một instance duy nhất của đối tượng cấu hình để dễ dàng import
+# Tạo một instance duy nhất của đối tượng cấu hình
 config = AppConfig()
