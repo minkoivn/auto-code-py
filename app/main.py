@@ -16,6 +16,16 @@ class Application:
         """
         self.version: int = version
 
+    def _execute_core_logic(self) -> None:
+        """
+        Phương thức giữ chỗ cho logic cốt lõi thực tế của ứng dụng.
+        Đây là nơi công việc chính của ứng dụng sẽ được thực hiện.
+        """
+        logging.info("Thực thi logic cốt lõi của ứng dụng...")
+        # TODO: Triển khai các tính năng ứng dụng thực tế tại đây.
+        # Ví dụ: xử lý dữ liệu, tương tác với các hệ thống bên ngoài, v.v.
+        logging.info("Logic cốt lõi đã hoàn thành.")
+
     def run(self) -> None:
         """
         Đây là hàm chính của ứng dụng.
@@ -23,6 +33,10 @@ class Application:
         """
         logging.info("Ứng dụng đã bắt đầu chạy")
         logging.info(f"Hello from {APPLICATION_NAME} - Version {self.version}")
+        
+        # Gọi phương thức giữ chỗ cho logic cốt lõi
+        self._execute_core_logic()
+        
         logging.info("Ứng dụng đã chạy xong")
 
 
