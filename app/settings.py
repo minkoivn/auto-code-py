@@ -2,23 +2,22 @@
 import os
 import logging
 from typing import Dict, Any
+from config import APPLICATION_NAME as DEFAULT_APPLICATION_NAME
+from config import DEFAULT_APPLICATION_VERSION as DEFAULT_APP_VERSION
 
-# Định nghĩa các giá trị mặc định.
-# (Lưu ý: APPLICATION_NAME và DEFAULT_APPLICATION_VERSION hiện cũng có trong config.py.
-#  Việc này sẽ được giải quyết trong các lần thay đổi sau.)
-APPLICATION_NAME: str = "Project A"
-DEFAULT_APPLICATION_VERSION: int = 1
+# Định nghĩa các giá trị mặc định chỉ tồn tại trong settings.py
 DEFAULT_FAILURE_CHANCE: float = 0.2
 DEFAULT_LONG_TASK_DIVISOR: int = 5
 
 def load_application_settings() -> Dict[str, Any]:
     """
     Tải tất cả các cài đặt ứng dụng từ biến môi trường hoặc sử dụng giá trị mặc định.
+    Giá trị mặc định cho tên ứng dụng và phiên bản được lấy từ config.py để tránh trùng lặp.
     Trả về một từ điển chứa các cài đặt.
     """
     settings = {
-        "application_name": APPLICATION_NAME,
-        "version": DEFAULT_APPLICATION_VERSION,
+        "application_name": DEFAULT_APPLICATION_NAME,
+        "version": DEFAULT_APP_VERSION,
         "failure_chance": DEFAULT_FAILURE_CHANCE,
         "long_task_divisor": DEFAULT_LONG_TASK_DIVISOR,
     }
@@ -31,9 +30,9 @@ def load_application_settings() -> Dict[str, Any]:
             settings["version"] = version_int
             logging.info(f"Đã tải phiên bản ứng dụng từ biến môi trường: {version_int}")
         except ValueError:
-            logging.warning(f"Biến môi trường VERSION '{version_str}' không phải là số nguyên hợp lệ. Sử dụng mặc định ({DEFAULT_APPLICATION_VERSION}).")
+            logging.warning(f"Biến môi trường VERSION '{version_str}' không phải là số nguyên hợp lệ. Sử dụng mặc định ({DEFAULT_APP_VERSION}).")
     else:
-        logging.info(f"Biến môi trường VERSION không được đặt. Sử dụng mặc định ({DEFAULT_APPLICATION_VERSION}).")
+        logging.info(f"Biến môi trường VERSION không được đặt. Sử dụng mặc định ({DEFAULT_APP_VERSION}).")
 
     # Tải tỉ lệ lỗi
     failure_chance_str = os.getenv('FAILURE_CHANCE')
