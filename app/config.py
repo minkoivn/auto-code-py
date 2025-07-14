@@ -2,52 +2,65 @@
 import os
 from dotenv import load_dotenv
 
-# Paths
-APP_ROOT = os.path.dirname(os.path.abspath(__file__))
-# Assuming the repo root is one level up from app/
-REPO_DIR = os.path.dirname(APP_ROOT)
+# Tải các biến môi trường từ .env file trước tiên và chỉ một lần.
+# (Lưu ý: main.py cũng gọi load_dotenv() ở đầu, điều này là an toàn và bất biến).
+load_dotenv()
 
-# Control files
-CONTROL_DIR = os.path.join(REPO_DIR, ".control")
-TRIGGER_NEXT_STEP_FLAG = os.path.join(CONTROL_DIR, "trigger_next_step")
-USER_REQUEST_FILE = os.path.join(CONTROL_DIR, "user_request.txt")
+class AppConfig:
+    """
+    Một đối tượng cấu hình chuyên biệt để tập trung tất cả các cài đặt ứng dụng.
+    Các cài đặt được tải từ các biến môi trường (bao gồm file .env)
+    khi module được import.
+    """
+    # Đường dẫn
+    APP_ROOT = os.path.dirname(os.path.abspath(__file__))
+    # Giả sử thư mục gốc của repo nằm một cấp trên app/
+    REPO_DIR = os.path.dirname(APP_ROOT)
 
-# Environment variables and configurable settings
-GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
-# Validate GEMINI_API_KEY immediately upon loading config.py
-if not GEMINI_API_KEY:
-    raise ValueError("GEMINI_API_KEY environment variable not set. Please set it in the .env file or system environment.")
+    # Các file điều khiển
+    CONTROL_DIR = os.path.join(REPO_DIR, ".control")
+    TRIGGER_NEXT_STEP_FLAG = os.path.join(CONTROL_DIR, "trigger_next_step")
+    USER_REQUEST_FILE = os.path.join(CONTROL_DIR, "user_request.txt")
 
-# Specific log file paths
-APP_LOG_FILE_PATH = os.getenv('APP_LOG_FILE_PATH', 'app.log') # For general application logs
-EVOLUTION_LOG_FILE_PATH = os.getenv('EVOLUTION_LOG_FILE_PATH', 'evolution_log.json') # For evolution history log
+    # Biến môi trường và cài đặt cấu hình
+    GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+    # Xác thực GEMINI_API_KEY ngay lập tức khi tải config.py
+    if not GEMINI_API_KEY:
+        raise ValueError("GEMINI_API_KEY environment variable not set. Please set it in the .env file or system environment.")
 
-# LOG_FILE_PATH is imported by orchestrator.py for history. 
-# It should map to EVOLUTION_LOG_FILE_PATH for consistency with L71.
-LOG_FILE_PATH = EVOLUTION_LOG_FILE_PATH
+    # Đường dẫn file log cụ thể
+    APP_LOG_FILE_PATH = os.getenv('APP_LOG_FILE_PATH', 'app.log') # Dành cho log ứng dụng chung
+    EVOLUTION_LOG_FILE_PATH = os.getenv('EVOLUTION_LOG_FILE_PATH', 'evolution_log.json') # Dành cho log lịch sử tiến hóa
 
-LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO').upper()
+    # LOG_FILE_PATH được import bởi orchestrator.py cho lịch sử.
+    # Nó phải ánh xạ tới EVOLUTION_LOG_FILE_PATH để nhất quán với L71.
+    LOG_FILE_PATH = EVOLUTION_LOG_FILE_PATH
 
-# Core AI parameters
-MAX_AI_X_RETRIES = int(os.getenv('MAX_AI_X_RETRIES', 3))
-RETRY_SLEEP_SECONDS = int(os.getenv('RETRY_SLEEP_SECONDS', 5))
-SLEEP_BETWEEN_ITERATIONS_SECONDS = int(os.getenv('SLEEP_BETWEEN_ITERATIONS_SECONDS', 10))
+    LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO').upper()
 
-# Other settings
-VERSION = "0.74.0" # Hardcoded version, ideally read from git tags or dynamic
-INTERACTIVE_MODE = os.getenv('INTERACTIVE_MODE', 'False').lower() == 'true'
+    # Các tham số AI cốt lõi
+    MAX_AI_X_RETRIES = int(os.getenv('MAX_AI_X_RETRIES', 3))
+    RETRY_SLEEP_SECONDS = int(os.getenv('RETRY_SLEEP_SECONDS', 5))
+    SLEEP_BETWEEN_ITERATIONS_SECONDS = int(os.getenv('SLEEP_BETWEEN_ITERATIONS_SECONDS', 10))
 
-# Paths to exclude from source code context (for get_source_code_context)
-EXCLUDE_PATHS = [
-    ".git",
-    "__pycache__",
-    ".idea",
-    ".vscode",
-    "*.pyc",
-    "node_modules",
-    "venv",
-    ".env",
-    CONTROL_DIR, # Exclude control directory content
-    APP_LOG_FILE_PATH, # Exclude general app log file from context
-    EVOLUTION_LOG_FILE_PATH, # Exclude evolution history log file from context
-]
+    # Các cài đặt khác
+    VERSION = "0.74.0" # Phiên bản hardcoded, lý tưởng là đọc từ git tags hoặc động
+    INTERACTIVE_MODE = os.getenv('INTERACTIVE_MODE', 'False').lower() == 'true'
+
+    # Các đường dẫn cần loại trừ khỏi bối cảnh mã nguồn (cho get_source_code_context)
+    EXCLUDE_PATHS = [
+        ".git",
+        "__pycache__",
+        ".idea",
+        ".vscode",
+        "*.pyc",
+        "node_modules",
+        "venv",
+        ".env",
+        CONTROL_DIR, # Loại trừ nội dung thư mục điều khiển
+        APP_LOG_FILE_PATH, # Loại trừ file log ứng dụng chung khỏi bối cảnh
+        EVOLUTION_LOG_FILE_PATH # Loại trừ file log lịch sử tiến hóa khỏi bối cảnh
+    ]
+
+# Tạo một instance duy nhất của đối tượng cấu hình để dễ dàng import
+config = AppConfig()
