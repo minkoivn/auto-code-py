@@ -2,11 +2,7 @@
 
 import os
 import google.generativeai as genai
-
-# Đường dẫn đến prompt của AI Z và tên model AI.
-# Lưu ý: Trong các bản cập nhật sau, các giá trị này có thể được chuyển vào config.py.
-_Z_PROMPT_FILE_PATH = "app/prompts/z_prompt.txt"
-_AI_MODEL_NAME = "gemini-2.5-flash" # Sử dụng cùng model với AI X để nhất quán
+from config import Z_PROMPT_FILE_PATH, AI_MODEL_NAME # Import từ config.py
 
 def invoke_ai_z():
     """
@@ -15,13 +11,13 @@ def invoke_ai_z():
     """
     print("🧠 [AI Z] Đang kết nối Gemini, đọc prompt và tạo đề xuất nhiệm vụ...")
     try:
-        if not os.path.exists(_Z_PROMPT_FILE_PATH):
-            raise FileNotFoundError(f"File prompt cho AI Z không tìm thấy: {_Z_PROMPT_FILE_PATH}")
+        if not os.path.exists(Z_PROMPT_FILE_PATH):
+            raise FileNotFoundError(f"File prompt cho AI Z không tìm thấy: {Z_PROMPT_FILE_PATH}")
 
-        with open(_Z_PROMPT_FILE_PATH, "r", encoding="utf-8") as f:
+        with open(Z_PROMPT_FILE_PATH, "r", encoding="utf-8") as f:
             prompt = f.read()
 
-        model = genai.GenerativeModel(_AI_MODEL_NAME)
+        model = genai.GenerativeModel(AI_MODEL_NAME)
         response = model.generate_content(prompt)
         
         task_suggestion = response.text.strip()
