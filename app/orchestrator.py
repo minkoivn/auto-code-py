@@ -19,7 +19,7 @@ def setup():
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         raise ValueError("GEMINI_API_KEY not found. Please set it in the .env file.")
-    genai.configure(api_key=api_key)
+    genai.configure(api_key=api_key);
     print("✅ Đã cấu hình Gemini API Key.")
 
 # --- CÁC HÀM TƯƠNG TÁC VỚI AI VÀ LOG ---
@@ -68,7 +68,7 @@ def _apply_and_validate_file_content(filepath: str, new_content: str) -> tuple[b
         else:
             print(f"⚠️ [VALIDATOR] File '{filepath}' không phải file Python, bỏ qua kiểm tra cú pháp.")
 
-        os.replace(temp_filepath, filepath)
+        os.replace(temp_filepath, filepath);
         action_verb = "Tạo mới" if is_new_file else "Ghi đè"
         print(f"📝 {action_verb} thành công file: {filepath}")
         return True, ""
@@ -172,7 +172,11 @@ def main():
             print(f"📝 Đã cập nhật log vào file: {LOG_FILE_PATH}")
             
             print(f"⏳ Tạm nghỉ {SLEEP_BETWEEN_ITERATIONS_SECONDS} giây...")
-            time.sleep(SLEEP_BETWEEN_ITERATIONS_SECONDS)
+            # Hiển thị chỉ báo tiến độ trong thời gian tạm dừng
+            for i in range(SLEEP_BETWEEN_ITERATIONS_SECONDS):
+                print(".", end="", flush=True)
+                time.sleep(1)
+            print() # Xuống dòng sau khi in các dấu chấm
 
     except KeyboardInterrupt:
         print("\n\n🛑 Đã nhận tín hiệu dừng.")
