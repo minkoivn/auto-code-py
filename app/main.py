@@ -1,57 +1,132 @@
-import logging
+# app/main.py
 import os
-from dotenv import load_dotenv
+import subprocess
+import time
+import hashlib
+import shutil
+import logging
+from pathlib import Path
 
-# Gọi load_dotenv() sớm nhất có thể để đảm bảo tất cả các biến môi trường
-# được tải trước khi bất kỳ module nào khác phụ thuộc vào chúng được khởi tạo.
-load_dotenv()
+# --- Cấu hình ---
+APP_FILE = Path("app/application.py")
+VERSIONS_DIR = Path("app/versions")
+LOGS_DIR = Path("app/logs")
+LOG_FILE = LOGS_DIR / "supervisor.log"
+PYTHON_EXECUTABLE = "python"  # Hoặc "python3"
 
-# Giả định config.py tồn tại và định nghĩa APP_LOG_FILE_PATH và LOG_LEVEL
-# dựa trên lịch sử commit gần đây.
-from config import APP_LOG_FILE_PATH, LOG_LEVEL
-from orchestrator import Orchestrator # Giả định orchestrator là một thành phần cốt lõi
+# --- Thiết lập Logging ---
+LOGS_DIR.mkdir(exist_ok=True)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] - %(message)s",
+    handlers=[
+        logging.FileHandler(LOG_FILE),
+        logging.StreamHandler()
+    ]
+)
 
-# Định cấu hình logging sử dụng các cài đặt từ config hoặc biến môi trường
-log_level = os.getenv('LOG_LEVEL', LOG_LEVEL).upper()
+def get_file_hash(filepath: Path) -> str:
+    """Tính toán hash SHA-256 của một tệp."""
+    if not filepath.exists():
+        return ""
+    h = hashlib.sha256()
+    with open(filepath, 'rb') as f:
+        while chunk := f.read(8192):
+            h.update(chunk)
+    return h.hexdigest()
 
-# Đảm bảo thư mục cho tệp log tồn tại
-log_dir = os.path.dirname(APP_LOG_FILE_PATH)
-if not os.path.exists(log_dir):
-    os.makedirs(log_dir)
+def backup_working_version(source: Path):
+    """Sao lưu phiên bản đang hoạt động vào thư mục versions."""
+    VERSIONS_DIR.mkdir(exist_ok=True)
+    
+    # Tạo tên tệp sao lưu dựa trên timestamp
+    backup_path = VERSIONS_DIR / f"{source.name}.{int(time.time())}.bak"
+    
+    try:
+        shutil.copy(source, backup_path)
+        logging.info(f"Đã sao lưu phiên bản hoạt động tới: {backup_path}")
+        return backup_path
+    except Exception as e:
+        logging.error(f"Sao lưu thất bại: {e}")
+        return None
 
-logging.basicConfig(level=log_level,
-                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    handlers=[
-                        logging.FileHandler(APP_LOG_FILE_PATH),
-                        logging.StreamHandler()
-                    ])
-logger = logging.getLogger(__name__)
+def restore_last_working_version(target: Path) -> bool:
+    """Phục hồi phiên bản hoạt động cuối cùng từ thư mục versions."""
+    try:
+        backups = sorted(VERSIONS_DIR.glob(f"{target.name}.*.bak"), key=os.path.getmtime, reverse=True)
+        if not backups:
+            logging.error("Không tìm thấy phiên bản sao lưu nào để phục hồi.")
+            return False
+        
+        latest_backup = backups[0]
+        shutil.copy(latest_backup, target)
+        logging.warning(f"Đã phục hồi tệp '{target}' từ bản sao lưu '{latest_backup}'.")
+        return True
+    except Exception as e:
+        logging.error(f"Phục hồi thất bại: {e}")
+        return False
+
+def main():
+    """Hàm chính giám sát và chạy ứng dụng."""
+    process = None
+    last_hash = get_file_hash(APP_FILE)
+    
+    # Sao lưu phiên bản đầu tiên nếu nó hoạt động
+    if last_hash:
+        backup_working_version(APP_FILE)
+
+    while True:
+        try:
+            # Khởi chạy ứng dụng lần đầu
+            if process is None or process.poll() is not None:
+                logging.info(f"Đang khởi chạy '{APP_FILE}'...")
+                process = subprocess.Popen([PYTHON_EXECUTABLE, str(APP_FILE)])
+                logging.info(f"'{APP_FILE}' đã được khởi chạy với PID: {process.pid}.")
+                time.sleep(2) # Chờ một chút để ứng dụng ổn định
+
+                # Kiểm tra xem có lỗi ngay khi khởi động không
+                if process.poll() is not None:
+                    logging.error(f"'{APP_FILE}' đã thoát ngay lập tức với mã lỗi {process.poll()}.")
+                    logging.warning("Đang cố gắng phục hồi phiên bản hoạt động cuối cùng...")
+                    if restore_last_working_version(APP_FILE):
+                        last_hash = get_file_hash(APP_FILE)
+                        # Thử chạy lại sau khi phục hồi
+                        continue 
+                    else:
+                        logging.critical("Không thể phục hồi. Hệ thống tạm dừng.")
+                        break
+
+            # Giám sát thay đổi tệp
+            current_hash = get_file_hash(APP_FILE)
+            if current_hash != last_hash:
+                logging.warning(f"Phát hiện thay đổi trong '{APP_FILE}'. Đang khởi động lại...")
+                
+                # 1. Dừng tiến trình cũ
+                process.terminate()
+                try:
+                    process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                logging.info("Tiến trình cũ đã được dừng.")
+
+                # 2. Sao lưu phiên bản mới (để có thể phục hồi nếu nó lỗi)
+                backup_working_version(APP_FILE)
+
+                # 3. Cập nhật hash và khởi động lại
+                last_hash = current_hash
+                process = None # Vòng lặp sẽ tự khởi động lại
+                continue
+
+            time.sleep(3) # Tần suất kiểm tra file
+
+        except KeyboardInterrupt:
+            logging.info("Phát hiện Ctrl+C. Đang tắt hệ thống...")
+            if process and process.poll() is None:
+                process.terminate()
+            break
+        except Exception as e:
+            logging.critical(f"Lỗi nghiêm trọng trong vòng lặp giám sát: {e}")
+            break
 
 if __name__ == "__main__":
-    logger.info("Ứng dụng đang khởi động...")
-    try:
-        # Khởi tạo Orchestrator (thành phần chính của AI Z)
-        # Orchestrator này sẽ xử lý các tương tác,
-        # gọi AI Z và có khả năng gọi AI X.
-        orchestrator = Orchestrator()
-
-        # Đây là nơi logic để khởi động máy chủ web hoặc vòng lặp chính sẽ được đặt.
-        # Mô tả dự án đề cập đến "trang web tương tác với người dùng ở localhost:3000"
-        # và "chạy liên tục như web".
-        # Trong một ứng dụng thực tế, điều này có thể là 'app.run()' nếu sử dụng Flask,
-        # hoặc một lời gọi tương tự cho framework web được sử dụng.
-        logger.info("Hệ thống AI đã được khởi tạo. Sẵn sàng tương tác với giao diện web tại localhost:3000.")
-        
-        # Ví dụ: nếu đây là ứng dụng Flask, bạn có thể có:
-        # from app import app
-        # app.run(debug=True, port=3000)
-        
-        # Để đơn giản trong ví dụ này, chúng ta chỉ ghi log và đợi.
-        # Trong thực tế, sẽ có một vòng lặp sự kiện hoặc server chạy ở đây.
-        pass
-
-    except Exception as e:
-        logger.error(f"Một lỗi không mong muốn đã xảy ra trong quá trình khởi động ứng dụng: {e}", exc_info=True)
-        # Có thể tùy chọn re-raise hoặc thoát với mã lỗi
-        # import sys
-        # sys.exit(1)
+    main()
