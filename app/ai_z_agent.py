@@ -1,116 +1,98 @@
-# app/ai_z_agent.py
-
+import logging
 import os
-import json
-import re
 import google.generativeai as genai
-from google.generativeai.types import StopCandidateException # Import specific exception
-from config import Z_PROMPT_FILE_PATH, AI_MODEL_NAME # Import từ config.py
-from logging_setup import logger # Import the logger
+from dotenv import load_dotenv
 
-def _process_ai_z_response_json(ai_raw_text: str) -> tuple[str, list[str]]:
+from . import config
+from . import git_utils
+from google.api_core.exceptions import ResourceExhausted, InternalServerError, Aborted, ClientError, DeadlineExceeded, RetryError, StopCandidateException
+
+load_dotenv()
+logger = logging.getLogger(__name__)
+
+# Configure Gemini API key from environment
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+if not GEMINI_API_KEY:
+    logger.error("GEMINI_API_KEY environment variable not set.")
+    raise ValueError("GEMINI_API_KEY environment variable not set.")
+
+genai.configure(api_key=GEMINI_API_KEY)
+model = genai.GenerativeModel('gemini-pro')
+
+def invoke_ai_z(user_request: str = None) -> str:
     """
-    Xử lý chuỗi phản hồi thô từ AI Z, trích xuất JSON, kiểm tra cấu trúc
-    và chuẩn hóa đường dẫn file.
-    Raise ValueError nếu phản hồi không hợp lệ hoặc thiếu trường.
+    Invokes AI Z to get a suggestion for project improvement,
+    now incorporating recent Git commit history for better context.
     """
-    text = ai_raw_text.replace("\u00A0", " ").replace("\r", "")
-
-    # Ưu tiên tìm khối JSON được bọc trong ```json
-    match = re.search(r'```json\s*({.*?})\s*```', text, re.DOTALL)
-    if not match:
-        # Nếu không tìm thấy, thử tìm bất kỳ đối tượng JSON nào
-        match = re.search(r'({.*?})', text, re.DOTALL)
-
-    if not match:
-        raise ValueError("AI Z không trả về nội dung theo định dạng JSON hợp lệ.")
-
-    json_string = match.group(1)
-    try:
-        data = json.loads(json_string)
-    except json.JSONDecodeError:
-        raise ValueError("AI Z trả về chuỗi không phải là JSON hợp lệ.")
-
-    suggestion = data.get("suggestion")
-    relevant_files = data.get("relevant_files")
-
-    if not all([suggestion, relevant_files is not None]): # Check relevant_files explicitly for None, as it can be empty list
-        missing_fields = []
-        if not suggestion: missing_fields.append("suggestion")
-        if relevant_files is None: missing_fields.append("relevant_files") # Check if key is missing/None
-        raise ValueError(f"JSON từ AI Z thiếu các trường bắt buộc: {', '.join(missing_fields)}.")
+    logger.info("Invoking AI Z to get a suggestion...")
     
-    if not isinstance(relevant_files, list):
-        raise ValueError("Trường 'relevant_files' trong JSON của AI Z phải là một danh sách.")
-
-    # Chuẩn hóa đường dẫn file trong relevant_files
-    normalized_files = []
-    for filepath in relevant_files:
-        if isinstance(filepath, str):
-            # Đảm bảo filepath bắt đầu bằng 'app/' nếu chưa có
-            if not filepath.startswith("app/") and not filepath.startswith("./app/"):
-                filepath = "app/" + filepath
-            normalized_files.append(filepath)
-        else:
-            logger.warning(f"File path '{filepath}' trong relevant_files không phải là chuỗi. Bỏ qua.")
-
-    return suggestion, normalized_files
-
-def invoke_ai_z(user_request: str = None) -> tuple[str | None, list[str] | None]:
-    """
-    Yêu cầu AI Z đề xuất một nhiệm vụ hoặc vấn đề nhỏ cho AI X và danh sách các tệp liên quan.
-    Có thể bao gồm yêu cầu cụ thể từ người dùng.
-    Trả về một tuple: (chuỗi mô tả nhiệm vụ, danh sách các tệp liên quan) hoặc (None, None) nếu có lỗi.
-    """
-    logger.info("🧠 [AI Z] Đang kết nối Gemini, đọc prompt và tạo đề xuất nhiệm vụ...")
+    # Fetch recent Git history
     try:
-        if not os.path.exists(Z_PROMPT_FILE_PATH):
-            logger.error(f"File prompt cho AI Z không tìm thấy: {Z_PROMPT_FILE_PATH}")
-            raise FileNotFoundError(f"File prompt cho AI Z không tìm thấy: {Z_PROMPT_FILE_PATH}")
+        git_history = git_utils.get_git_log(num_commits=5) # Get last 5 commits
+        history_str = "\n".join([f"- {commit['hash']} ({commit['author']}): {commit['message']}" for commit in git_history])
+        logger.info(f"Fetched recent Git history:\n{history_str}")
+    except Exception as e:
+        logger.error(f"Error fetching Git history: {e}")
+        history_str = "Could not fetch recent Git history." # Fallback if history fetching fails
 
-        with open(Z_PROMPT_FILE_PATH, "r", encoding="utf-8") as f:
-            prompt = f.read()
-        
-        # Add user request to the prompt if provided
-        if user_request:
-            logger.info(f"🧠 [AI Z] Đang tích hợp yêu cầu người dùng vào prompt: '{user_request[:50]}...' [Tiếp theo: xem full yêu cầu]")
-            # Định dạng rõ ràng để AI Z nhận diện yêu cầu từ người dùng
-            prompt += f"\n\n--- YÊU CẦU CẢI THIỆN TỪ NGƯỜI DÙNG ---\n{user_request}\n---------------------------------------\nHãy xem xét yêu cầu này khi đưa ra đề xuất cải tiến tiếp theo."
-        
-        # Thêm hướng dẫn AI Z về định dạng JSON và việc chọn file
-        prompt += "\n\nHãy trả về đề xuất của bạn dưới dạng đối tượng JSON với hai trường: 'suggestion' (mô tả nhiệm vụ) và 'relevant_files' (một danh sách các đường dẫn tệp bạn nghĩ AI X nên tập trung xem xét, ví dụ: ['app/file1.py', 'app/utils/helper.py']. Nếu không có tệp cụ thể nào, hãy trả về danh sách rỗng []). Bọc JSON trong ```json...```."
+    # Base prompt for AI Z
+    system_prompt = (
+        "Bạn là AI Z, một AI cấp cao có nhiệm vụ giám sát dự án và đề xuất các cải tiến chiến lược "
+        "để tối ưu hóa hiệu suất, khả năng bảo trì và thêm tính năng mới. "
+        "Dựa trên bối cảnh dự án, lịch sử thay đổi gần đây và các yêu cầu từ người dùng (nếu có), "
+        "hãy đưa ra MỘT đề xuất cụ thể để cải thiện dự án. "
+        "Đề xuất này có thể là sửa một file hiện có hoặc tạo một file hoàn toàn mới. "
+        "Hãy tập trung vào một thay đổi có ý nghĩa và có tác động lớn." 
+        "Đề xuất của bạn phải là một câu duy nhất, trực tiếp và rõ ràng." # Added for conciseness
+    )
 
+    context_info = f"\nLỊCH SỬ CÁC THAY ĐỔI GẦN ĐÂY (Git Log):\n{history_str}\n"
 
-        model = genai.GenerativeModel(AI_MODEL_NAME)
-        response = model.generate_content(prompt)
+    user_prompt = "Hãy đưa ra một đề xuất cải thiện dự án."
+    if user_request:
+        user_prompt += f"\nNgười dùng có yêu cầu đặc biệt: '{user_request}'"
+        logger.info(f"User request provided: '{user_request}'")
+
+    full_prompt = f"{system_prompt}{context_info}{user_prompt}"
+    
+    logger.info(f"Sending prompt to Gemini for AI Z: {full_prompt[:500]}...") # Log first 500 chars
+
+    try:
+        response = model.generate_content(full_prompt)
         
-        # Bổ sung kiểm tra robust cho phản hồi API
-        if not response.candidates:
-            reason = "API Gemini trả về không có ứng cử viên (candidate). Có thể do bị chặn nội dung hoặc không tạo được phản hồi." 
-            logger.error(f"❌ Lỗi khi gọi Gemini API cho AI Z: {reason}")
-            return None, None
-        
-        if not response.text.strip():
-            reason = "API Gemini trả về phản hồi rỗng hoặc chỉ chứa khoảng trắng sau khi tạo nội dung." 
-            logger.error(f"❌ Lỗi khi gọi Gemini API cho AI Z: {reason}")
-            return None, None
-        
-        try:
-            suggestion, relevant_files = _process_ai_z_response_json(response.text)
-            logger.info(f"🧠 [AI Z] Đã nhận được đề xuất nhiệm vụ: '{suggestion[:100]}...' [Tiếp theo: xem full đề xuất]")
-            logger.info(f"🧠 [AI Z] Các tệp liên quan được đề xuất: {relevant_files}")
-            return suggestion, relevant_files
-        except ValueError as ve:
-            logger.error(f"❌ Lỗi khi xử lý JSON từ AI Z: {ve}")
-            return None, None
+        if not response or not response.candidates:
+            logger.warning("Gemini API returned an empty response or no candidates for AI Z.")
+            return "AI Z could not generate a suggestion at this time (empty response)."
+
+        if not hasattr(response.candidates[0], 'content') or not hasattr(response.candidates[0].content, 'parts') or not response.candidates[0].content.parts:
+            logger.warning("Gemini API response for AI Z has no content parts.")
+            return "AI Z could not generate a suggestion at this time (no content parts)."
+
+        ai_z_suggestion = response.candidates[0].content.parts[0].text
+        logger.info(f"AI Z's raw suggestion received: {ai_z_suggestion[:500]}...")
+        return ai_z_suggestion
 
     except StopCandidateException as e:
-        reason = f"Đề xuất bị chặn do chính sách an toàn hoặc lý do khác: {e}"
-        logger.error(f"❌ Lỗi khi gọi Gemini API cho AI Z (StopCandidateException): {reason}", exc_info=True)
-        return None, None
-    except FileNotFoundError as e:
-        logger.error(f"❌ Lỗi: {e}")
-        return None, None
+        logger.error(f"Gemini API StopCandidateException for AI Z: {e.response.text if e.response else 'No response text'}")
+        return "AI Z could not generate a suggestion due to content policy or safety reasons."
+    except ResourceExhausted:
+        logger.error("Gemini API ResourceExhausted for AI Z: You have exceeded your quota or rate limits.")
+        return "AI Z could not generate a suggestion (quota/rate limit exceeded)."
+    except InternalServerError as e:
+        logger.error(f"Gemini API InternalServerError for AI Z: {e}")
+        return "AI Z could not generate a suggestion (internal server error).";
+    except Aborted as e:
+        logger.error(f"Gemini API Aborted for AI Z: {e}")
+        return "AI Z could not generate a suggestion (request aborted).";
+    except ClientError as e:
+        logger.error(f"Gemini API ClientError for AI Z: {e}")
+        return "AI Z could not generate a suggestion (client-side error).";
+    except DeadlineExceeded as e:
+        logger.error(f"Gemini API DeadlineExceeded for AI Z: {e}")
+        return "AI Z could not generate a suggestion (request timed out).";
+    except RetryError as e:
+        logger.error(f"Gemini API RetryError for AI Z: {e.cause if e.cause else 'Unknown retry error'}")
+        return "AI Z could not generate a suggestion (retryable error occurred).";
     except Exception as e:
-        logger.error(f"❌ Lỗi khi gọi Gemini API cho AI Z: {e}", exc_info=True)
-        return None, None
+        logger.error(f"An unexpected error occurred during AI Z invocation: {e}", exc_info=True)
+        return f"AI Z could not generate a suggestion due to an unexpected error: {e}"
