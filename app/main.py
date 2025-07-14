@@ -2,6 +2,7 @@ import logging
 import sys
 from utils import prepare_application_startup
 from config import APPLICATION_NAME
+from core_logic import run_application_core_logic
 
 
 class Application:
@@ -16,25 +17,6 @@ class Application:
         """
         self.version: int = version
 
-    def _execute_core_logic(self) -> None:
-        """
-        Phương thức giữ chỗ cho logic cốt lõi thực tế của ứng dụng.
-        Đây là nơi công việc chính của ứng dụng sẽ được thực hiện.
-        Hiện tại, nó mô phỏng việc xử lý các tác vụ.
-        """
-        logging.info("Thực thi logic cốt lõi của ứng dụng...")
-        
-        # Mô phỏng số lượng tác vụ cần xử lý dựa trên phiên bản
-        num_tasks = self.version * 5 
-        logging.info(f"Mô phỏng xử lý {num_tasks} tác vụ cho phiên bản {self.version} của {APPLICATION_NAME}.")
-        
-        for i in range(1, num_tasks + 1):
-            logging.debug(f"Đang xử lý tác vụ {i}/{num_tasks}...")
-            # Trong một ứng dụng thực tế, đây sẽ là nơi thực hiện công việc cụ thể
-            # Ví dụ: gọi API, xử lý dữ liệu, ghi vào cơ sở dữ liệu, v.v.
-        
-        logging.info("Logic cốt lõi đã hoàn thành.")
-
     def run(self) -> None:
         """
         Đây là hàm chính của ứng dụng.
@@ -43,8 +25,8 @@ class Application:
         logging.info("Ứng dụng đã bắt đầu chạy")
         logging.info(f"Hello from {APPLICATION_NAME} - Version {self.version}")
         
-        # Gọi phương thức giữ chỗ cho logic cốt lõi
-        self._execute_core_logic()
+        # Gọi hàm logic cốt lõi đã được tách riêng
+        run_application_core_logic(self.version)
         
         logging.info("Ứng dụng đã chạy xong")
 
