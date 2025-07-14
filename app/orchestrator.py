@@ -138,8 +138,12 @@ def _execute_evolution_step(iteration_count: int, history_log: list) -> dict:
 
 # --- LUỒNG CHÍNH VỚI CƠ CHẾ THỬ LẠI (RETRY) ---
 
-def main():
-    """Hàm chính chứa vòng lặp, quản lý lịch sử và cơ chế thử lại."""
+def main(max_iterations: int = None):
+    """Hàm chính chứa vòng lặp, quản lý lịch sử và cơ chế thử lại.
+    Args:
+        max_iterations (int, optional): Số chu kỳ tiến hóa tối đa để chạy. 
+                                        Nếu None, sẽ chạy vô thời hạn.
+    """
     setup()
     
     print(f"🌟 Khởi động AI Agent X - Phiên bản: {VERSION}")
@@ -157,7 +161,7 @@ def main():
     iteration_count = len(history_log)
 
     try:
-        while True:
+        while max_iterations is None or iteration_count < max_iterations:
             iteration_count += 1
             print("\n" + "="*50)
             print(f"🎬 BẮT ĐẦU CHU TRÌNH TIẾN HÓA LẦN THỨ {iteration_count}")
