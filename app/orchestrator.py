@@ -7,7 +7,7 @@ import py_compile
 from dotenv import load_dotenv
 import google.generativeai as genai
 from ai_agent import invoke_ai_x
-from config import LOG_FILE_PATH, EXCLUDE_PATHS, MAX_AI_X_RETRIES, SLEEP_BETWEEN_ITERATIONS_SECONDS, VERSION, INTERACTIVE_MODE
+from config import LOG_FILE_PATH, EXCLUDE_PATHS, MAX_AI_X_RETRIES, RETRY_SLEEP_SECONDS, SLEEP_BETWEEN_ITERATIONS_SECONDS, VERSION, INTERACTIVE_MODE
 from utils import get_source_code_context
 from git_utils import add_and_commit
 from ai_z_agent import invoke_ai_z # Thêm import cho AI Z
@@ -53,10 +53,32 @@ def _invoke_ai_with_retries(context: str, history_log: list) -> tuple[str, str, 
         else:
             print(f"  AI X thất bại lần {attempt + 1}. Lý do: {failure_reason}")
             if attempt < MAX_AI_X_RETRIES - 1:
-                time.sleep(5) # Wait before retrying
+                time.sleep(RETRY_SLEEP_SECONDS) 
     
     # If all retries failed
     return None, None, None, f"AI X thất bại sau {MAX_AI_X_RETRIES} lần thử. Lý do cuối cùng: {failure_reason}"
+
+def _invoke_ai_z_with_retries() -> str | None:
+    """
+    Kêu gọi AI Z với cơ chế thử lại.
+    Trả về chuỗi đề xuất hoặc None nếu thất bại sau các lần thử.
+    """
+    task_suggestion = None
+    for attempt in range(MAX_AI_X_RETRIES): # Sử dụng cùng cấu hình thử lại với AI X
+        print(f"  (Lần thử {attempt + 1}/{MAX_AI_X_RETRIES} cho AI Z...)")
+        task_suggestion = invoke_ai_z()
+        if task_suggestion:
+            print(f"  AI Z đã đưa ra đề xuất thành công ở lần thử {attempt + 1}.")
+            return task_suggestion
+        else:
+            # invoke_ai_z đã tự in lỗi, chỉ cần ngủ và thử lại
+            print(f"  AI Z thất bại lần {attempt + 1}.")
+            if attempt < MAX_AI_X_RETRIES - 1:
+                time.sleep(RETRY_SLEEP_SECONDS)
+    
+    # Nếu tất cả các lần thử đều thất bại
+    print(f"❌ AI Z thất bại sau {MAX_AI_X_RETRIES} lần thử.")
+    return None
 
 def _apply_and_validate_file_content(filepath: str, new_content: str) -> tuple[bool, str]:
     """
@@ -139,8 +161,8 @@ def _execute_evolution_step(iteration_count: int, history_log: list) -> dict:
     # 1. Lấy bối cảnh mã nguồn hiện tại
     source_context = get_source_code_context()
     
-    # 2. Gọi AI Z để lấy đề xuất nhiệm vụ
-    task_suggestion = invoke_ai_z()
+    # 2. Gọi AI Z để lấy đề xuất nhiệm vụ (với cơ chế thử lại)
+    task_suggestion = _invoke_ai_z_with_retries()
     
     # 3. Tích hợp đề xuất của AI Z vào bối cảnh cho AI X
     context_for_ai_x = source_context
