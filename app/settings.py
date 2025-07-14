@@ -2,8 +2,6 @@
 import os
 import logging
 from typing import Dict, Any
-from config import APPLICATION_NAME as DEFAULT_APPLICATION_NAME
-from config import DEFAULT_APPLICATION_VERSION as DEFAULT_APP_VERSION
 
 # Định nghĩa các giá trị mặc định chỉ tồn tại trong settings.py
 DEFAULT_FAILURE_CHANCE: float = 0.2
@@ -11,28 +9,14 @@ DEFAULT_LONG_TASK_DIVISOR: int = 5
 
 def load_application_settings() -> Dict[str, Any]:
     """
-    Tải tất cả các cài đặt ứng dụng từ biến môi trường hoặc sử dụng giá trị mặc định.
-    Giá trị mặc định cho tên ứng dụng và phiên bản được lấy từ config.py để tránh trùng lặp.
-    Trả về một từ điển chứa các cài đặt.
+    Tải các cài đặt mô phỏng (tỉ lệ lỗi và bộ chia tác vụ dài) từ biến môi trường
+    hoặc sử dụng giá trị mặc định. Phiên bản và tên ứng dụng được quản lý riêng.
+    Trả về một từ điển chứa các cài đặt mô phỏng.
     """
     settings = {
-        "application_name": DEFAULT_APPLICATION_NAME,
-        "version": DEFAULT_APP_VERSION,
         "failure_chance": DEFAULT_FAILURE_CHANCE,
         "long_task_divisor": DEFAULT_LONG_TASK_DIVISOR,
     }
-
-    # Tải phiên bản ứng dụng
-    version_str: str | None = os.environ.get('VERSION')
-    if version_str:
-        try:
-            version_int: int = int(version_str)
-            settings["version"] = version_int
-            logging.info(f"Đã tải phiên bản ứng dụng từ biến môi trường: {version_int}")
-        except ValueError:
-            logging.warning(f"Biến môi trường VERSION '{version_str}' không phải là số nguyên hợp lệ. Sử dụng mặc định ({DEFAULT_APP_VERSION}).")
-    else:
-        logging.info(f"Biến môi trường VERSION không được đặt. Sử dụng mặc định ({DEFAULT_APP_VERSION}).")
 
     # Tải tỉ lệ lỗi
     failure_chance_str = os.getenv('FAILURE_CHANCE')
@@ -62,5 +46,5 @@ def load_application_settings() -> Dict[str, Any]:
     else:
         logging.info(f"Biến môi trường LONG_TASK_DIVISOR không được đặt. Sử dụng mặc định ({DEFAULT_LONG_TASK_DIVISOR}).")
 
-    logging.info(f"Tất cả cài đặt đã tải: {settings}")
+    logging.info(f"Tất cả cài đặt mô phỏng đã tải: {settings}")
     return settings
