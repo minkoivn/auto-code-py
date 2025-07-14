@@ -11,6 +11,8 @@ from config import LOG_FILE_PATH, EXCLUDE_PATHS, MAX_AI_X_RETRIES, SLEEP_BETWEEN
 from utils import get_source_code_context
 from git_utils import add_and_commit
 from ai_z_agent import invoke_ai_z # Thêm import cho AI Z
+import threading # New import for threading
+from web_server import app as flask_app # New import for Flask app
 
 # Constants for web interaction (will be moved to config.py in future iterations)
 CONTROL_DIR = "app/control"
@@ -26,6 +28,13 @@ def setup():
         raise ValueError("GEMINI_API_KEY not found. Please set it in the .env file.")
     genai.configure(api_key=api_key);
     print("✅ Đã cấu hình Gemini API Key.")
+
+def _run_web_server():
+    """Chạy Flask web server trong một thread riêng."""
+    print("🚀 [Web Server] Đang khởi động AI Agent X Web Interface...")
+    print("🌐 Truy cập tại: http://127.0.0.1:3000")
+    # debug=False và use_reloader=False khi chạy trong thread để tránh lỗi reloader
+    flask_app.run(debug=False, port=3000, use_reloader=False)
 
 # --- CÁC HÀM TƯƠNG TÁC VỚI AI VÀ LOG ---
 
@@ -168,6 +177,10 @@ def main(max_iterations: int = None):
     setup()
     
     print(f"🌟 Khởi động AI Agent X - Phiên bản: {VERSION}")
+
+    # Start the Flask web server in a separate thread
+    web_thread = threading.Thread(target=_run_web_server, daemon=True)
+    web_thread.start()
     
     history_log = []
     if os.path.exists(LOG_FILE_PATH):
