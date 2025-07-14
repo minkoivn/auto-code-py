@@ -61,10 +61,19 @@ def invoke_ai_x(context: str, history_log: list):
     prompt_filled_history = prompt_template.replace("{history_context}", history_context)
     prompt = f"{prompt_filled_history}\n\n{context}"
     
+    # Log the prompt details before sending (at DEBUG level)
+    logger.debug(f"🤖 [AI X] Gửi prompt tới Gemini. Độ dài: {len(prompt)} ký tự. 1000 ký tự đầu:\n{prompt[:1000]}...")
+    
     model = genai.GenerativeModel(AI_MODEL_NAME)
     try:
         response = model.generate_content(prompt)
         
+        # Log the raw response after receiving it (at DEBUG level)
+        if response and hasattr(response, 'text'):
+            logger.debug(f"🤖 [AI X] Đã nhận phản hồi thô từ Gemini (độ dài: {len(response.text)}): {response.text}")
+        else:
+            logger.debug(f"🤖 [AI X] Phản hồi từ Gemini không có thuộc tính 'text' hoặc rỗng.")
+            
         # Bổ sung kiểm tra robust cho phản hồi API
         if not response.candidates:
             reason = "API Gemini trả về không có ứng cử viên (candidate). Có thể do bị chặn nội dung hoặc không tạo được phản hồi." 
