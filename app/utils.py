@@ -1,7 +1,7 @@
 # app/utils.py
 
 import os
-from app.config import EXCLUDE_PATHS
+from config import EXCLUDE_PATHS
 
 def get_source_code_context():
     """Đọc mã nguồn thư mục 'app' để làm bối cảnh, loại trừ các file/thư mục không cần thiết."""
@@ -30,3 +30,14 @@ def get_source_code_context():
                     context += f.read()
                 context += "\n\n"
     return context
+
+def format_history_for_prompt(history_log: list, num_entries=10) -> str:
+    """Định dạng các mục log gần đây nhất để đưa vào prompt."""
+    if not history_log:
+        return "Chưa có lịch sử."
+    
+    recent_history = history_log[-num_entries:]
+    formatted_history = ""
+    for entry in recent_history:
+        formatted_history += f"- Lần {entry['iteration']}: Trạng thái = {entry['status']}. Lý do = {entry['reason']}\n"
+    return formatted_history
