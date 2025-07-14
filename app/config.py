@@ -1,24 +1,57 @@
 # app/config.py
+import os
+from dotenv import load_dotenv
+
+# Tải các biến môi trường từ file .env khi module này được import.
+# Điều này đảm bảo rằng các biến môi trường sẽ sẵn sàng trước khi chúng được sử dụng.
+load_dotenv()
+
+def _get_env_variable(key: str, default: any = None, required: bool = False, var_type: type = str):
+    """
+    Truy xuất một biến môi trường một cách an toàn.
+    - key (str): Tên của biến môi trường.
+    - default (any, optional): Giá trị mặc định nếu biến không tồn tại. Mặc định là None.
+    - required (bool): Nếu True và biến không tìm thấy, sẽ báo lỗi ValueError.
+    - var_type (type): Kiểu dữ liệu mong muốn của biến (str, int, bool, ...).
+      Hỗ trợ chuyển đổi chuỗi 'true', '1', 't', 'y', 'yes' thành True cho kiểu bool.
+    Raises ValueError nếu biến là bắt buộc mà không tìm thấy hoặc chuyển đổi kiểu thất bại.
+    """
+    value = os.getenv(key)
+    if value is None:
+        if required:
+            raise ValueError(f"Biến môi trường '{key}' là bắt buộc nhưng không tìm thấy.")
+        return default
+    
+    try:
+        if var_type == bool:
+            # Chuyển đổi giá trị boolean từ chuỗi một cách linh hoạt
+            return value.lower() in ('true', '1', 't', 'y', 'yes')
+        return var_type(value)
+    except ValueError:
+        raise ValueError(f"Giá trị của biến môi trường '{key}' ('{value}') không thể chuyển đổi sang kiểu {var_type.__name__}.")
+
+# Cấu hình API Key cho Gemini (BẮT BUỘC)
+# AI Agent sẽ sử dụng giá trị này để cấu hình thư viện genai.
+GEMINI_API_KEY = _get_env_variable("GEMINI_API_KEY", required=True)
 
 # Cấu hình đường dẫn và file
 PROMPT_FILE_PATH = "app/prompts/x_prompt.txt"
 LOG_FILE_PATH = "app/evolution_log.json"
 
-# Các đường dẫn cần loại trừ khỏi bối cảnh mã nguồn
+# Các đường dẫn cần loại trừ khỏi bối cảnh mã nguồn khi đọc code
 EXCLUDE_PATHS = [
     LOG_FILE_PATH, # Loại trừ file log
     "app/prompts/" # Loại trừ thư mục chứa các prompt
 ]
 
-# Cấu hình hoạt động của AI Agent
-MAX_AI_X_RETRIES = 3 # Số lần thử lại tối đa khi gọi AI X
-RETRY_SLEEP_SECONDS = 5 # Thời gian chờ giữa các lần thử lại khi gọi AI X
-SLEEP_BETWEEN_ITERATIONS_SECONDS = 15 # Thời gian chờ giữa các chu kỳ tiến hóa
-INTERACTIVE_MODE = False # Chế độ tương tác: True để yêu cầu người dùng xác nhận sau mỗi chu kỳ
-AI_MODEL_NAME = "gemini-2.5-flash" # Tên model AI được sử dụng
+# Cấu hình hoạt động của AI Agent, có thể bị ghi đè bởi biến môi trường
+MAX_AI_X_RETRIES = _get_env_variable("MAX_AI_X_RETRIES", default=3, var_type=int)
+RETRY_SLEEP_SECONDS = _get_env_variable("RETRY_SLEEP_SECONDS", default=5, var_type=int)
+SLEEP_BETWEEN_ITERATIONS_SECONDS = _get_env_variable("SLEEP_BETWEEN_ITERATIONS_SECONDS", default=15, var_type=int)
+INTERACTIVE_MODE = _get_env_variable("INTERACTIVE_MODE", default=False, var_type=bool)
+AI_MODEL_NAME = _get_env_variable("AI_MODEL_NAME", default="gemini-2.5-flash")
 
 # Thông tin phiên bản của AI Agent
 VERSION = "0.0.1"
 
 # Các cài đặt khác có thể thêm vào đây trong tương lai
-# Ví dụ: thời gian chờ giữa các chu kỳ, cấu hình model AI...
