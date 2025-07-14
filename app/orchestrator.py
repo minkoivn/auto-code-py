@@ -5,11 +5,10 @@ import json
 import time
 import py_compile
 import google.generativeai as genai
-from ai_agent import invoke_ai_x
 from config import config
 from utils import get_source_code_context
 from git_utils import GitAgent
-from ai_z_agent import invoke_ai_z
+
 import threading
 from web_server import app as flask_app
 from logging_setup import logger
@@ -283,6 +282,7 @@ def _save_history(history_log: list):
 # --- LUỒNG CHÍNH VỚI CƠ CHẾ THỬ LẠI (RETRY) ---
 
 def main(max_iterations: int = None):
+    from ai_z_agent import invoke_ai_z
     """Hàm chính chứa vòng lặp, quản lý lịch sử và cơ chế thử lại.
     Args:
         max_iterations (int, optional): Số chu kỳ tiến hóa tối đa để chạy. 
