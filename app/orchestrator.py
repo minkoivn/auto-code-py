@@ -7,7 +7,8 @@ import py_compile
 from dotenv import load_dotenv
 import google.generativeai as genai
 from app.ai_agent import invoke_ai_x
-from app.config import LOG_FILE_PATH, EXCLUDE_PATHS, MAX_AI_X_RETRIES # Nhập các hằng số từ config.py
+from app.config import LOG_FILE_PATH, EXCLUDE_PATHS, MAX_AI_X_RETRIES
+from app.utils import get_source_code_context # Nhập get_source_code_context từ app.utils
 
 # --- CÁC HÀM TIỆN ÍCH VÀ CẤU HÌNH ---
 
@@ -20,33 +21,7 @@ def setup():
     genai.configure(api_key=api_key)
     print("✅ Đã cấu hình Gemini API Key.")
 
-def get_source_code_context():
-    """Đọc mã nguồn thư mục 'app' để làm bối cảnh, loại trừ các file/thư mục không cần thiết."""
-    context = ""
-    for root, _, files in os.walk("app"):
-        for file in files:
-            filepath = os.path.join(root, file)
-            
-            # Kiểm tra xem đường dẫn có nằm trong danh sách loại trừ không
-            excluded = False
-            for exclude_path in EXCLUDE_PATHS:
-                if filepath == exclude_path: # Kiểm tra file cụ thể
-                    excluded = True
-                    break
-                # Kiểm tra nếu là thư mục con (có dấu gạch chéo ở cuối)
-                if exclude_path.endswith('/') and filepath.startswith(exclude_path):
-                    excluded = True
-                    break
-            
-            if excluded:
-                continue
-
-            if file.endswith(".py"):
-                context += f"--- File: {filepath} ---\n"
-                with open(filepath, "r", encoding="utf-8") as f:
-                    context += f.read()
-                context += "\n\n"
-    return context
+# Hàm get_source_code_context đã được chuyển sang app/utils.py và được nhập ở trên.
 
 # --- CÁC HÀM TƯƠNG TÁC VỚI AI VÀ LOG ---
 
@@ -57,7 +32,7 @@ def get_source_code_context():
 def validate_and_commit_changes(filepath: str, new_content: str, description: str):
     """
     Kiểm tra cú pháp, nếu hợp lệ thì ghi đè/tạo mới và commit.
-    Trả về một tuple (status, final_reason).
+    Trả về một tuple: (status, final_reason).
     """
     print(f"🚀 [Z] Bắt đầu quá trình thực thi cho file: {filepath}")
     temp_filepath = filepath + ".tmp"
@@ -105,8 +80,6 @@ def main():
     """Hàm chính chứa vòng lặp, quản lý lịch sử và cơ chế thử lại."""
     setup()
     
-    # MAX_AI_X_RETRIES = 3 # Đã chuyển sang config.py
-
     history_log = []
     if os.path.exists(LOG_FILE_PATH):
         try:
