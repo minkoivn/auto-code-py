@@ -1,7 +1,9 @@
 import logging
 import os
 import argparse
-from config import DEFAULT_APPLICATION_VERSION
+from config import DEFAULT_APPLICATION_VERSION, APPLICATION_NAME # Cập nhật để nhập APPLICATION_NAME
+from runtime_config import RuntimeConfig # Nhập module mới
+from settings import load_application_settings # Nhập để tải cài đặt mô phỏng
 
 def setup_logging(level_str: str = 'INFO') -> None:
     """
@@ -55,15 +57,30 @@ def parse_cli_arguments() -> argparse.Namespace:
                         help="Chỉ định cấp độ logging (mặc định: INFO).")
     return parser.parse_args()
 
-def prepare_application_startup() -> int:
+def prepare_application_startup() -> RuntimeConfig: # Cập nhật kiểu trả về thành RuntimeConfig
     """
     Thực hiện các bước khởi tạo ứng dụng ban đầu:
     - Phân tích đối số dòng lệnh.
     - Cấu hình logging dựa trên cấp độ đã phân tích.
     - Lấy phiên bản ứng dụng cuối cùng.
-    Trả về phiên bản ứng dụng đã được xác định.
+    - Tải cài đặt mô phỏng từ settings.py.
+    - Tạo và trả về đối tượng RuntimeConfig chứa tất cả các cài đặt động.
     """
     args = parse_cli_arguments()
     setup_logging(args.log_level)
-    final_version = get_application_version(args.version)
-    return final_version
+    
+    # Lấy phiên bản ứng dụng
+    app_version = get_application_version(args.version)
+    
+    # Tải các cài đặt mô phỏng
+    simulation_settings = load_application_settings()
+
+    # Tạo đối tượng RuntimeConfig
+    runtime_config = RuntimeConfig(
+        app_name=APPLICATION_NAME, # Lấy tên ứng dụng từ config.py
+        app_version=app_version,
+        simulation_settings=simulation_settings
+    )
+
+    logging.info(f"Đã chuẩn bị khởi động ứng dụng với: {runtime_config}")
+    return runtime_config
