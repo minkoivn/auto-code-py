@@ -1,5 +1,6 @@
 import logging
-from app.utils import setup_logging, get_application_version, parse_cli_arguments
+from utils import setup_logging, get_application_version, parse_cli_arguments
+from config import APPLICATION_NAME
 
 
 class Application:
@@ -21,7 +22,7 @@ class Application:
         """
         try:
             logging.info("Ứng dụng đã bắt đầu chạy")
-            logging.info(f"Hello from Project A - Version {self.version}")
+            logging.info(f"Hello from {APPLICATION_NAME} - Version {self.version}")
             logging.info("Ứng dụng đã chạy xong")
         except Exception as e:
             logging.exception(f"Lỗi trong quá trình chạy ứng dụng: {e}")
