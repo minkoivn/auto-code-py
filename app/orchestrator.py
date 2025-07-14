@@ -4,10 +4,20 @@ import subprocess
 import json
 import time
 import py_compile
-from dotenv import load_dotenv
 import google.generativeai as genai
 from ai_agent import invoke_ai_x
-from config import LOG_FILE_PATH, EXCLUDE_PATHS, MAX_AI_X_RETRIES, RETRY_SLEEP_SECONDS, SLEEP_BETWEEN_ITERATIONS_SECONDS, VERSION, INTERACTIVE_MODE
+from config import (
+    LOG_FILE_PATH,
+    EXCLUDE_PATHS,
+    MAX_AI_X_RETRIES,
+    RETRY_SLEEP_SECONDS,
+    SLEEP_BETWEEN_ITERATIONS_SECONDS,
+    VERSION,
+    INTERACTIVE_MODE,
+    CONTROL_DIR, # Import từ config.py
+    TRIGGER_NEXT_STEP_FLAG, # Import từ config.py
+    GEMINI_API_KEY # Import từ config.py
+)
 from utils import get_source_code_context
 from git_utils import add_and_commit
 from ai_z_agent import invoke_ai_z
@@ -15,20 +25,15 @@ import threading
 from web_server import app as flask_app
 from logging_setup import logger # Import the logger
 
-# Constants for web interaction (will be moved to config.py in future iterations)
-CONTROL_DIR = "app/control"
-TRIGGER_NEXT_STEP_FLAG = os.path.join(CONTROL_DIR, "trigger_next_step.flag")
-
 # --- CÁC HÀM TIỆN ÍCH VÀ CẤU HÌNH ---
 
 def setup():
-    """Tải biến môi trường và cấu hình API Key cho Gemini."""
-    load_dotenv()
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
+    """Cấu hình API Key cho Gemini."""
+    # load_dotenv() đã được xử lý tự động khi config.py được import
+    if not GEMINI_API_KEY:
         logger.critical("GEMINI_API_KEY not found. Please set it in the .env file.", exc_info=True)
         raise ValueError("GEMINI_API_KEY not found. Please set it in the .env file.")
-    genai.configure(api_key=api_key);
+    genai.configure(api_key=GEMINI_API_KEY);
     logger.info("Đã cấu hình Gemini API Key.")
 
 def _run_web_server():
