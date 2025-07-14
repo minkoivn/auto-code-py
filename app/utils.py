@@ -3,9 +3,15 @@ import os
 import argparse
 from config import DEFAULT_APPLICATION_VERSION
 
-def setup_logging() -> None:
-    """Cấu hình cài đặt logging cơ bản cho ứng dụng."""
-    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(filename)s - %(lineno)d - %(message)s')
+def setup_logging(level_str: str = 'INFO') -> None:
+    """
+    Cấu hình cài đặt logging cơ bản cho ứng dụng với cấp độ có thể tùy chỉnh.
+    Cấp độ có thể được truyền vào dưới dạng chuỗi (ví dụ: 'DEBUG', 'INFO', 'WARNING').
+    """
+    # Ánh xạ chuỗi cấp độ thành các hằng số logging, mặc định là INFO nếu không hợp lệ
+    log_level = getattr(logging, level_str.upper(), logging.INFO)
+    logging.basicConfig(level=log_level, format='%(asctime)s - %(levelname)s - %(filename)s - %(lineno)d - %(message)s')
+    logging.info(f"Cấu hình logging hoàn tất. Cấp độ: {logging.getLevelName(log_level)}")
 
 def get_application_version(cli_version: int | None = None) -> int:
     """
@@ -38,7 +44,13 @@ def get_application_version(cli_version: int | None = None) -> int:
     return application_version
 
 def parse_cli_arguments() -> argparse.Namespace:
-    """Phân tích các đối số dòng lệnh cho ứng dụng, bao gồm tùy chọn phiên bản."""
+    """
+    Phân tích các đối số dòng lệnh cho ứng dụng, bao gồm tùy chọn phiên bản
+    và cấp độ logging.
+    """
     parser = argparse.ArgumentParser(description="Chạy Project A với phiên bản được chỉ định.")
     parser.add_argument('--version', type=int, help=f"Chỉ định phiên bản ứng dụng (mặc định: {DEFAULT_APPLICATION_VERSION}).")
+    parser.add_argument('--log-level', type=str, default='INFO',
+                        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
+                        help="Chỉ định cấp độ logging (mặc định: INFO).")
     return parser.parse_args()
