@@ -8,7 +8,8 @@ from dotenv import load_dotenv
 import google.generativeai as genai
 from app.ai_agent import invoke_ai_x
 from app.config import LOG_FILE_PATH, EXCLUDE_PATHS, MAX_AI_X_RETRIES
-from app.utils import get_source_code_context # Nhập get_source_code_context từ app.utils
+from app.utils import get_source_code_context
+from app.git_utils import add_and_commit # Nhập add_and_commit từ app.git_utils
 
 # --- CÁC HÀM TIỆN ÍCH VÀ CẤU HÌNH ---
 
@@ -54,10 +55,9 @@ def validate_and_commit_changes(filepath: str, new_content: str, description: st
         action_verb = "Tạo mới" if is_new_file else "Ghi đè"
         print(f"📝 {action_verb} thành công file: {filepath}")
         
-        subprocess.run(["git", "add", filepath], check=True)
+        # Sử dụng hàm add_and_commit từ git_utils thay vì gọi subprocess trực tiếp
         commit_message = f"feat(AI): {description}"
-        subprocess.run(["git", "commit", "-m", commit_message], check=True)
-        print(f"🚀 [Z] Đã tạo commit mới: '{commit_message}'")
+        add_and_commit(filepath, commit_message)
         
         return "COMMITTED", description
 
