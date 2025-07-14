@@ -4,6 +4,7 @@ import re
 import google.generativeai as genai
 from config import PROMPT_FILE_PATH, AI_MODEL_NAME
 from utils import format_history_for_prompt
+from logging_setup import logger # Import the logger
 
 def _process_ai_response_json(ai_raw_text: str) -> tuple[str, str, str]:
     """
@@ -50,7 +51,7 @@ def invoke_ai_x(context: str, history_log: list):
     Yêu cầu AI X trả về một đối tượng JSON chứa nội dung file mới và mô tả.
     Trả về một tuple: (filepath, new_content, description, failure_reason)
     """
-    print("🤖 [AI X] Đang kết nối Gemini, đọc lịch sử và tạo đề xuất file mới...")
+    logger.info("🤖 [AI X] Đang kết nối Gemini, đọc lịch sử và tạo đề xuất file mới...")
     with open(PROMPT_FILE_PATH, "r", encoding="utf-8") as f:
         prompt_template = f.read()
     
@@ -65,12 +66,12 @@ def invoke_ai_x(context: str, history_log: list):
         
         try:
             filepath, new_content, description = _process_ai_response_json(response.text)
-            print("🤖 [AI X] Đã nhận được đề xuất JSON hợp lệ.")
+            logger.info("🤖 [AI X] Đã nhận được đề xuất JSON hợp lệ.")
             return filepath, new_content, description, None
         except ValueError as ve:
             # Lỗi từ hàm xử lý JSON
             return None, None, None, str(ve)
 
     except Exception as e:
-        print(f"❌ Lỗi khi gọi Gemini API cho AI X: {e}")
+        logger.error(f"❌ Lỗi khi gọi Gemini API cho AI X: {e}", exc_info=True)
         return None, None, None, str(e)
