@@ -1,122 +1,225 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Agent X Dashboard (v{{ version }})</title>
+    <title>AI Agent X - Web Interface</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f4; color: #333; }
-        h1, h2, h3 { color: #0056b3; }
-        .container { max-width: 1200px; margin: auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-        .section { margin-bottom: 30px; padding: 15px; border: 1px solid #ddd; border-radius: 5px; background-color: #f9f9f9; }
-        .log-entry { margin-bottom: 10px; padding: 10px; border-bottom: 1px dashed #eee; }
-        .log-entry:last-child { border-bottom: none; }
-        /* Các trạng thái log */
-        .log-status-committed { color: green; font-weight: bold; }
-        .log-status-rejected_validation_failed { color: orange; font-weight: bold; }
-        .log-status-execution_failed { color: red; font-weight: bold; }
-        .log-status-no_proposal { color: gray; font-weight: bold; }
-        pre { background-color: #eee; padding: 10px; border-radius: 5px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word; }
-        .button-group { margin-top: 20px; text-align: center; }
-        .button-group button {
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f7f6;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 15px;
+        }
+        h2 {
+            color: #34495e;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+            margin-top: 40px;
+            margin-bottom: 20px;
+        }
+        .status-section {
+            background-color: #e8f5e9;
+            border: 1px solid #d4edda;
+            padding: 15px;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        .status-text {
+            font-weight: bold;
+            color: #28a745;
+            font-size: 1.1em;
+        }
+        .status-waiting {
+            background-color: #fff3cd;
+            border-color: #ffeeba;
+            color: #856404;
+        }
+        .status-waiting .status-text {
+            color: #856404;
+        }
+        button {
             padding: 10px 20px;
-            font-size: 16px;
-            cursor: pointer;
             border: none;
             border-radius: 5px;
-            color: white;
+            cursor: pointer;
+            font-size: 1em;
             transition: background-color 0.3s ease;
-            margin: 0 5px;
         }
-        .button-group button.trigger { background-color: #007bff; }
-        .button-group button.trigger:hover { background-color: #0056b3; }
-        .button-group button.clear { background-color: #dc3545; } /* Red for clear/cancel */
-        .button-group button.clear:hover { background-color: #c82333; }
-        .status-message {
+        .trigger-button {
+            background-color: #007bff;
+            color: white;
+        }
+        .trigger-button:hover {
+            background-color: #0056b3;
+        }
+        .clear-button {
+            background-color: #dc3545;
+            color: white;
+            margin-left: 10px;
+        }
+        .clear-button:hover {
+            background-color: #c82333;
+        }
+        .log-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        .log-table th, .log-table td {
+            border: 1px solid #ddd;
             padding: 10px;
-            margin-bottom: 15px;
-            border-radius: 5px;
-            font-weight: bold;
-            text-align: center;
+            text-align: left;
         }
-        .status-waiting { background-color: #ffc107; color: #333; } /* Yellow for waiting */
-        .status-triggered { background-color: #28a745; color: white; } /* Green for triggered */
+        .log-table th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+            color: #555;
+        }
+        .log-table tr:nth-child(even) { background-color: #f9f9f9; }
+        .log-table tr:hover { background-color: #f1f1f1; }
+        .source-code-context {
+            background-color: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            white-space: pre-wrap; /* Giữ định dạng khoảng trắng và xuống dòng */
+            max-height: 500px;
+            font-family: 'Consolas', 'Monaco', 'Andale Mono', 'Ubuntu Mono', monospace;
+            font-size: 0.9em;
+            line-height: 1.5;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            color: #777;
+            font-size: 0.9em;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>AI Agent X Dashboard <small>(v{{ version }})</small></h1>
+        <h1>AI Agent X - Web Interface <span style="font-size: 0.7em;">(v{{ version }})</span></h1>
 
-        <div class="section button-group">
-            <h3>Điều khiển luồng AI</h3>
-            {% if is_waiting_for_trigger %}
-                <div class="status-message status-triggered">
-                    Cờ kích hoạt đã được đặt. AI Agent X sẽ tiếp tục bước tiếp theo.
-                </div>
-                <button class="clear" onclick="clearTriggerFlag()">Hủy kích hoạt</button>
-            {% else %}
-                <div class="status-message status-waiting">
-                    AI Agent X đang chờ tín hiệu của bạn để tiếp tục chu trình tiến hóa.
-                </div>
-                <button class="trigger" onclick="triggerNextStep()">Kích hoạt bước tiếp theo</button>
-            {% endif %}
+        <h2>Trạng thái và Điều khiển</h2>
+        <div class="status-section {{ 'status-waiting' if is_waiting_for_trigger else '' }}">
+            <div class="status-text">
+                {% if is_waiting_for_trigger %}
+                    AI Agent X đang ở chế độ TƯƠNG TÁC và chờ kích hoạt...
+                {% else %}
+                    AI Agent X đang chạy hoặc đã hoàn thành chu trình.
+                {% endif %}
+            </div>
+            <div>
+                {% if is_waiting_for_trigger %}
+                    <button class="trigger-button" onclick="triggerNextStep()">Kích hoạt Bước tiếp theo</button>
+                    <button class="clear-button" onclick="clearTriggerFlag()">Hủy kích hoạt</button>
+                {% else %}
+                    <button class="trigger-button" onclick="triggerNextStep()" disabled>Kích hoạt (Đã chạy)</button>
+                    <button class="clear-button" onclick="clearTriggerFlag()">Hủy kích hoạt</button>
+                {% endif %}
+            </div>
         </div>
 
-        <div class="section">
-            <h2>Lịch sử tiến hóa gần đây</h2>
-            {% if log_entries %}
-                {% for entry in log_entries %}
-                    <div class="log-entry">
-                        <strong>Lần {{ entry.iteration }}:</strong> 
-                        Trạng thái = <span class="log-status-{{ entry.status | lower | replace(' ', '_') }}">{{ entry.status }}</span>. 
-                        Lý do = {{ entry.reason }}
-                    </div>
-                {% endfor %}
-            {% else %}
-                <p>Chưa có lịch sử tiến hóa nào.</p>
-            {% endif %}
-        </div>
+        <h2>Bối cảnh mã nguồn hiện tại (AI X đang nhìn thấy)</h2>
+        <pre class="source-code-context">{{ source_context }}</pre>
 
-        <div class="section">
-            <h2>Bối cảnh mã nguồn hiện tại</h2>
-            <p>Đây là mã nguồn mà AI Agent X đang xem xét để đưa ra quyết định:</p>
-            <pre>{{ source_context }}</pre>
+        <h2>Lịch sử Tiến hóa</h2>
+        <table class="log-table">
+            <thead>
+                <tr>
+                    <th>Lần</th>
+                    <th>Trạng thái</th>
+                    <th>Lý do / Mô tả</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if log_entries %}
+                    {% for entry in log_entries %}
+                        <tr>
+                            <td>{{ entry.iteration }}</td>
+                            <td>{{ entry.status }}</td>
+                            <td>{{ entry.reason }}</td>
+                        </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="3">Chưa có lịch sử tiến hóa nào.</td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+
+        <div class="footer">
+            AI Agent X được phát triển bởi Gemini 🤖
         </div>
     </div>
 
     <script>
-        async function triggerNextStep() {
-            const response = await fetch('/api/trigger_next_step', {
+        function triggerNextStep() {
+            fetch('/api/trigger_next_step', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('Đã kích hoạt bước tiếp theo!');
+                    location.reload(); // Tải lại trang để cập nhật trạng thái
+                } else {
+                    alert('Lỗi khi kích hoạt: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Có lỗi xảy ra khi gửi yêu cầu kích hoạt.');
             });
-            const data = await response.json();
-            if (data.status === 'success') {
-                alert('Đã gửi tín hiệu kích hoạt thành công!');
-                // Tải lại trang để cập nhật trạng thái cờ
-                location.reload(); 
-            } else {
-                alert('Lỗi khi kích hoạt: ' + data.message);
-            }
         }
 
-        async function clearTriggerFlag() {
-            const response = await fetch('/api/clear_trigger_flag', {
+        function clearTriggerFlag() {
+            fetch('/api/clear_trigger_flag', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('Đã hủy kích hoạt!');
+                    location.reload(); // Tải lại trang để cập nhật trạng thái
+                } else {
+                    alert('Lỗi khi hủy kích hoạt: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Có lỗi xảy ra khi gửi yêu cầu hủy kích hoạt.');
             });
-            const data = await response.json();
-            if (data.status === 'success') {
-                alert('Đã hủy kích hoạt thành công!');
-                // Tải lại trang để cập nhật trạng thái cờ
-                location.reload(); 
-            } else {
-                alert('Lỗi khi hủy kích hoạt: ' + data.message);
-            }
         }
     </script>
 </body>
