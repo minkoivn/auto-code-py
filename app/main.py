@@ -21,14 +21,10 @@ class Application:
         Đây là hàm chính của ứng dụng.
         Hiện tại nó chỉ in ra một thông điệp.
         """
-        try:
-            logging.info("Ứng dụng đã bắt đầu chạy")
-            logging.info(f"Hello from {APPLICATION_NAME} - Version {self.version}")
-            logging.info("Ứng dụng đã chạy xong")
-        except Exception as e:
-            logging.exception(f"Lỗi trong quá trình chạy ứng dụng: {e}")
-        finally:
-            logging.info("Ứng dụng đã kết thúc")
+        logging.info("Ứng dụng đã bắt đầu chạy")
+        logging.info(f"Hello from {APPLICATION_NAME} - Version {self.version}")
+        logging.info("Ứng dụng đã chạy xong")
+
 
 def main() -> None:
     """
