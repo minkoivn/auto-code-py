@@ -3,7 +3,7 @@ from flask import Flask, render_template, request, redirect, url_for, jsonify
 import os
 import json
 # Import CONTROL_DIR and TRIGGER_NEXT_STEP_FLAG from config.py for centralization
-from config import LOG_FILE_PATH, VERSION, CONTROL_DIR, TRIGGER_NEXT_STEP_FLAG 
+from config import LOG_FILE_PATH, VERSION, CONTROL_DIR, TRIGGER_NEXT_STEP_FLAG, APP_LOG_FILE_PATH 
 from utils import get_source_code_context
 from logging_setup import logger # Import the logger
 
@@ -49,6 +49,23 @@ def index():
                            is_waiting_for_trigger=is_waiting_for_trigger,
                            user_request_pending=user_request_pending, 
                            user_request_content=user_request_content)
+
+# NEW ENDPOINT: Fetch application logs for debug tab
+@app.route('/api/get_app_logs')
+def get_app_logs():
+    """
+    Trả về nội dung của file log ứng dụng chính (agent.log) để hiển thị trong tab debug.
+    """
+    try:
+        if os.path.exists(APP_LOG_FILE_PATH):
+            with open(APP_LOG_FILE_PATH, "r", encoding="utf-8") as f:
+                logs = f.read()
+            return jsonify({"status": "success", "logs": logs}), 200
+        else:
+            return jsonify({"status": "error", "message": "File log ứng dụng không tồn tại."}), 404
+    except Exception as e:
+        logger.error(f"[Web Server] Lỗi khi đọc file log ứng dụng: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Không thể đọc log: {e}"}), 500
 
 @app.route('/api/trigger_next_step', methods=['POST'])
 def trigger_next_step():
