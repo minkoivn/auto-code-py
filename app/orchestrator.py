@@ -12,6 +12,10 @@ from utils import get_source_code_context
 from git_utils import add_and_commit
 from ai_z_agent import invoke_ai_z # Thêm import cho AI Z
 
+# Constants for web interaction (will be moved to config.py in future iterations)
+CONTROL_DIR = "app/control"
+TRIGGER_NEXT_STEP_FLAG = os.path.join(CONTROL_DIR, "trigger_next_step.flag")
+
 # --- CÁC HÀM TIỆN ÍCH VÀ CẤU HÌNH ---
 
 def setup():
@@ -193,10 +197,15 @@ def main(max_iterations: int = None):
             print(f"📝 Đã cập nhật log vào file: {LOG_FILE_PATH}")
             
             if INTERACTIVE_MODE:
-                user_input = input("\n[CHẾ ĐỘ TƯƠNG TÁC] Nhấn Enter để tiếp tục chu trình tiếp theo, hoặc 'q' để thoát: ").strip().lower()
-                if user_input == 'q':
-                    print("🛑 Người dùng đã chọn dừng.")
-                    break
+                print("\n[CHẾ ĐỘ TƯƠNG TÁC] Đang chờ kích hoạt từ giao diện web...")
+                os.makedirs(CONTROL_DIR, exist_ok=True) # Ensure control directory exists
+                while not os.path.exists(TRIGGER_NEXT_STEP_FLAG):
+                    print(".", end="", flush=True)
+                    time.sleep(1) # Check every second
+                
+                # Flag found, clear it and proceed
+                os.remove(TRIGGER_NEXT_STEP_FLAG)
+                print("\n✅ Đã nhận tín hiệu kích hoạt từ web. Tiếp tục chu trình.")
             else:
                 print(f"⏳ Tạm nghỉ {SLEEP_BETWEEN_ITERATIONS_SECONDS} giây...")
                 # Hiển thị chỉ báo tiến độ trong thời gian tạm dừng
