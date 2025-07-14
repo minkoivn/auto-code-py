@@ -7,9 +7,9 @@ import py_compile
 from dotenv import load_dotenv
 import google.generativeai as genai
 from app.ai_agent import invoke_ai_x
-from app.config import LOG_FILE_PATH, EXCLUDE_PATHS, MAX_AI_X_RETRIES
+from app.config import LOG_FILE_PATH, EXCLUDE_PATHS, MAX_AI_X_RETRIES, SLEEP_BETWEEN_ITERATIONS_SECONDS # Nhập SLEEP_BETWEEN_ITERATIONS_SECONDS
 from app.utils import get_source_code_context
-from app.git_utils import add_and_commit # Nhập add_and_commit từ app.git_utils
+from app.git_utils import add_and_commit
 
 # --- CÁC HÀM TIỆN ÍCH VÀ CẤU HÌNH ---
 
@@ -128,8 +128,8 @@ def main():
                 json.dump(history_log, f, indent=4, ensure_ascii=False)
             print(f"📝 Đã cập nhật log vào file: {LOG_FILE_PATH}")
             
-            print(f"⏳ Tạm nghỉ 15 giây...")
-            time.sleep(15)
+            print(f"⏳ Tạm nghỉ {SLEEP_BETWEEN_ITERATIONS_SECONDS} giây...") # Sử dụng hằng số từ config.py
+            time.sleep(SLEEP_BETWEEN_ITERATIONS_SECONDS) # Sử dụng hằng số từ config.py
 
     except KeyboardInterrupt:
         print("\n\n🛑 Đã nhận tín hiệu dừng.")
