@@ -54,3 +54,16 @@ def parse_cli_arguments() -> argparse.Namespace:
                         choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
                         help="Chỉ định cấp độ logging (mặc định: INFO).")
     return parser.parse_args()
+
+def prepare_application_startup() -> int:
+    """
+    Thực hiện các bước khởi tạo ứng dụng ban đầu:
+    - Phân tích đối số dòng lệnh.
+    - Cấu hình logging dựa trên cấp độ đã phân tích.
+    - Lấy phiên bản ứng dụng cuối cùng.
+    Trả về phiên bản ứng dụng đã được xác định.
+    """
+    args = parse_cli_arguments()
+    setup_logging(args.log_level)
+    final_version = get_application_version(args.version)
+    return final_version
