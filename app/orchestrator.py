@@ -222,6 +222,8 @@ def _execute_evolution_step(iteration_count: int, history_log: list) -> dict:
         logger.error(final_failure_reason)
         log_entry["status"] = "NO_PROPOSAL"
         log_entry["reason"] = final_failure_reason
+    
+    logger.info(f"KẾT THÚC CHU TRÌNH TIẾN HÓA LẦN THỨ {iteration_count} ({log_entry['status']}): {log_entry['reason']}")
         
     return log_entry
 
