@@ -39,6 +39,9 @@ PROMPT_FILE_PATH = "app/prompts/x_prompt.txt"
 LOG_FILE_PATH = "app/evolution_log.json"
 Z_PROMPT_FILE_PATH = "app/prompts/z_prompt.txt"
 
+# Đường dẫn cho tệp log hoạt động chính của ứng dụng AI Agent
+APP_LOG_FILE_PATH = _get_env_variable("APP_LOG_FILE_PATH", default="app/agent.log")
+
 # Cấu hình cho việc điều khiển thông qua giao diện web
 CONTROL_DIR = "app/control"
 TRIGGER_NEXT_STEP_FLAG = os.path.join(CONTROL_DIR, "trigger_next_step.flag")
@@ -53,7 +56,8 @@ REPO_DIR = _get_env_variable("REPO_DIR", default=PROJECT_ROOT)
 
 # Các đường dẫn cần loại trừ khỏi bối cảnh mã nguồn khi đọc code
 EXCLUDE_PATHS = [
-    LOG_FILE_PATH, # Loại trừ file log
+    LOG_FILE_PATH, # Loại trừ file log tiến hóa
+    APP_LOG_FILE_PATH, # Loại trừ file log hoạt động chính của ứng dụng
     "app/prompts/", # Loại trừ thư mục chứa các prompt
     USER_REQUEST_FILE # Loại trừ file yêu cầu người dùng
 ]
