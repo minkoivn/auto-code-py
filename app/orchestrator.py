@@ -6,6 +6,7 @@ import time
 import py_compile
 from dotenv import load_dotenv
 import google.generativeai as genai
+from app.ai_agent import invoke_ai_x # Nhập hàm invoke_ai_x từ module ai_agent
 
 # --- CÁC HÀM TIỆN ÍCH VÀ CẤU HÌNH ---
 
@@ -54,71 +55,7 @@ def get_source_code_context():
 
 # --- CÁC HÀM TƯƠNG TÁC VỚI AI VÀ LOG ---
 
-def format_history_for_prompt(history_log: list, num_entries=10) -> str:
-    """Định dạng các mục log gần đây nhất để đưa vào prompt."""
-    if not history_log:
-        return "Chưa có lịch sử."
-    
-    recent_history = history_log[-num_entries:]
-    formatted_history = ""
-    for entry in recent_history:
-        formatted_history += f"- Lần {entry['iteration']}: Trạng thái = {entry['status']}. Lý do = {entry['reason']}\n"
-    return formatted_history
-
-def invoke_ai_x(context: str, history_log: list):
-    """
-    Yêu cầu AI X trả về một đối tượng JSON chứa nội dung file mới và mô tả.
-    Trả về một tuple: (filepath, new_content, description, failure_reason)
-    """
-    print("🤖 [AI X] Đang kết nối Gemini, đọc lịch sử và tạo đề xuất file mới...")
-    with open("app/prompts/x_prompt.txt", "r", encoding="utf-8") as f:
-        prompt_template = f.read()
-    
-    history_context = format_history_for_prompt(history_log)
-    prompt_filled_history = prompt_template.replace("{history_context}", history_context)
-    prompt = f"{prompt_filled_history}\n\n{context}"
-    
-    model = genai.GenerativeModel('gemini-2.5-flash')
-    try:
-        response = model.generate_content(prompt)
-        text = response.text.replace("\u00A0", " ").replace("\r", "")
-        
-        # Cập nhật regex để tìm khối JSON
-        match = re.search(r'```json\s*({.*?})\s*```', text, re.DOTALL)
-        if not match:
-            match = re.search(r'({.*?})', text, re.DOTALL)
-
-        if match:
-            json_string = match.group(1)
-            try:
-                data = json.loads(json_string)
-                filepath =  data.get("filepath")
-                if not filepath.startswith("app/"):
-                    filepath = "app/" + filepath
-                new_content = data.get("new_code")
-                description = data.get("description")
-
-                if not all([filepath, new_content, description]):
-                    return None, None, None, "JSON trả về thiếu các trường bắt buộc (filepath, new_code, description)."
-
-                # Nếu là file đã tồn tại, kiểm tra xem có thay đổi không
-                if os.path.exists(filepath):
-                    with open(filepath, 'r', encoding='utf-8') as f:
-                        original_content = f.read()
-                    if original_content == new_content:
-                        return None, None, None, "Nội dung AI đề xuất giống hệt file gốc."
-
-                print("🤖 [AI X] Đã nhận được đề xuất JSON hợp lệ.")
-                return filepath, new_content, description, None
-            except json.JSONDecodeError:
-                return None, None, None, "AI trả về chuỗi không phải là JSON hợp lệ."
-        else:
-            return None, None, None, "AI không trả về nội dung theo định dạng JSON..."
-
-    except Exception as e:
-        print(f"❌ Lỗi khi gọi Gemini API cho AI X: {e}")
-        return None, None, None, str(e)
-
+# Các hàm format_history_for_prompt và invoke_ai_x đã được chuyển sang app/ai_agent.py
 
 # --- HÀM THỰC THI KIẾN TRÚC MỚI ---
 
