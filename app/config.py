@@ -42,11 +42,20 @@ Z_PROMPT_FILE_PATH = "app/prompts/z_prompt.txt"
 # Cấu hình cho việc điều khiển thông qua giao diện web
 CONTROL_DIR = "app/control"
 TRIGGER_NEXT_STEP_FLAG = os.path.join(CONTROL_DIR, "trigger_next_step.flag")
+USER_REQUEST_FILE = os.path.join(CONTROL_DIR, "user_request.txt") # Đã chuyển từ web_server.py
+
+# Xác định thư mục gốc của dự án (thư mục cha của 'app')
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
+# REPO_DIR: Thư mục gốc của kho mã nguồn mà AI Agent đang quản lý/phân tích.
+# Mặc định là thư mục gốc của dự án nếu không được cấu hình qua biến môi trường.
+REPO_DIR = _get_env_variable("REPO_DIR", default=PROJECT_ROOT)
+
 
 # Các đường dẫn cần loại trừ khỏi bối cảnh mã nguồn khi đọc code
 EXCLUDE_PATHS = [
     LOG_FILE_PATH, # Loại trừ file log
-    "app/prompts/" # Loại trừ thư mục chứa các prompt
+    "app/prompts/", # Loại trừ thư mục chứa các prompt
+    USER_REQUEST_FILE # Loại trừ file yêu cầu người dùng
 ]
 
 # Cấu hình hoạt động của AI Agent, có thể bị ghi đè bởi biến môi trường
