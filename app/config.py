@@ -15,5 +15,8 @@ MAX_AI_X_RETRIES = 3 # Số lần thử lại tối đa khi gọi AI X
 SLEEP_BETWEEN_ITERATIONS_SECONDS = 15 # Thời gian chờ giữa các chu kỳ tiến hóa
 AI_MODEL_NAME = "gemini-2.5-flash" # Tên model AI được sử dụng
 
+# Thông tin phiên bản của AI Agent
+VERSION = "0.0.1"
+
 # Các cài đặt khác có thể thêm vào đây trong tương lai
 # Ví dụ: thời gian chờ giữa các chu kỳ, cấu hình model AI...
