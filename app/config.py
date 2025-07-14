@@ -37,6 +37,11 @@ GEMINI_API_KEY = _get_env_variable("GEMINI_API_KEY", required=True)
 # Cấu hình đường dẫn và file
 PROMPT_FILE_PATH = "app/prompts/x_prompt.txt"
 LOG_FILE_PATH = "app/evolution_log.json"
+Z_PROMPT_FILE_PATH = "app/prompts/z_prompt.txt"
+
+# Cấu hình cho việc điều khiển thông qua giao diện web
+CONTROL_DIR = "app/control"
+TRIGGER_NEXT_STEP_FLAG = os.path.join(CONTROL_DIR, "trigger_next_step.flag")
 
 # Các đường dẫn cần loại trừ khỏi bối cảnh mã nguồn khi đọc code
 EXCLUDE_PATHS = [
