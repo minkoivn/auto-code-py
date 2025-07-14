@@ -5,9 +5,10 @@ import google.generativeai as genai
 from config import Z_PROMPT_FILE_PATH, AI_MODEL_NAME # Import từ config.py
 from logging_setup import logger # Import the logger
 
-def invoke_ai_z():
+def invoke_ai_z(user_request: str = None):
     """
     Yêu cầu AI Z đề xuất một nhiệm vụ hoặc vấn đề nhỏ cho AI X.
+    Có thể bao gồm yêu cầu cụ thể từ người dùng.
     Trả về chuỗi mô tả nhiệm vụ được đề xuất hoặc None nếu có lỗi.
     """
     logger.info("🧠 [AI Z] Đang kết nối Gemini, đọc prompt và tạo đề xuất nhiệm vụ...")
@@ -18,6 +19,12 @@ def invoke_ai_z():
 
         with open(Z_PROMPT_FILE_PATH, "r", encoding="utf-8") as f:
             prompt = f.read()
+        
+        # Add user request to the prompt if provided
+        if user_request:
+            logger.info(f"🧠 [AI Z] Đang tích hợp yêu cầu người dùng vào prompt: '{user_request[:50]}...' [Tiếp theo: xem full yêu cầu]")
+            # Định dạng rõ ràng để AI Z nhận diện yêu cầu từ người dùng
+            prompt += f"\n\n--- YÊU CẦU CẢI THIỆN TỪ NGƯỜI DÙNG ---\n{user_request}\n---------------------------------------\nHãy xem xét yêu cầu này khi đưa ra đề xuất cải tiến tiếp theo."
 
         model = genai.GenerativeModel(AI_MODEL_NAME)
         response = model.generate_content(prompt)
