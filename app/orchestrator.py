@@ -167,7 +167,7 @@ def _execute_evolution_step(iteration_count: int, history_log: list) -> dict:
     log_entry = { "iteration": iteration_count, "status": "", "reason": "" }
     
     # 1. Lấy bối cảnh mã nguồn hiện tại
-    source_context = get_source_code_context()
+    # source_context = get_source_code_context()
     
     # 2. Đọc yêu cầu người dùng (nếu có)
     user_request = None
@@ -193,15 +193,23 @@ def _execute_evolution_step(iteration_count: int, history_log: list) -> dict:
             logger.error(f"Lỗi khi xóa file yêu cầu người dùng '{USER_REQUEST_FILE}': {e}", exc_info=True)
     
     # 5. Tích hợp đề xuất của AI Z vào bối cảnh cho AI X
-    context_for_ai_x = source_context
-    # Chỉ bao gồm văn bản đề xuất, không phải toàn bộ tuple
-    if ai_z_suggestion_text:
-        context_for_ai_x = f"AI Z đã đưa ra đề xuất sau cho bạn: '{ai_z_suggestion_text}'. Hãy xem xét đề xuất này khi bạn đưa ra thay đổi tiếp theo để cải thiện dự án.\n\n{source_context}"
-        logger.info("Đề xuất của AI Z (văn bản) đã được thêm vào bối cảnh cho AI X.")
-        # TODO: Trong bước tiếp theo, hãy sử dụng relevant_files_from_z để tạo bối cảnh mục tiêu hơn
-        # Ví dụ: source_context = get_source_code_context(relevant_files=relevant_files_from_z)
+    # Quyết định bối cảnh mã nguồn cho AI X
+    if ai_z_suggestion_text and relevant_files_from_z:
+        # Sử dụng bối cảnh mục tiêu nếu AI Z cung cấp các tệp liên quan và có đề xuất
+        source_code_for_ai_x = get_source_code_context(relevant_files=relevant_files_from_z)
+        logger.info(f"AI X sẽ làm việc với bối cảnh mục tiêu dựa trên đề xuất của AI Z. Số lượng tệp: {len(relevant_files_from_z)}")
     else:
-        logger.warning("Không nhận được đề xuất từ AI Z hoặc có lỗi xảy ra.")
+        # Quay về bối cảnh đầy đủ nếu AI Z không cung cấp tệp cụ thể hoặc có lỗi
+        source_code_for_ai_x = get_source_code_context()
+        logger.info("AI X sẽ làm việc với bối cảnh mã nguồn đầy đủ (AI Z không đưa ra tệp liên quan cụ thể hoặc có lỗi). ")
+
+    # Thêm văn bản đề xuất của AI Z vào bối cảnh chung cho prompt của AI X
+    context_for_ai_x = source_code_for_ai_x
+    if ai_z_suggestion_text:
+        context_for_ai_x = f"AI Z đã đưa ra đề xuất sau cho bạn: '{ai_z_suggestion_text}'. Hãy xem xét đề xuất này khi bạn đưa ra thay đổi tiếp theo để cải thiện dự án.\n\n{source_code_for_ai_x}"
+        logger.info("Đề xuất của AI Z (văn bản) đã được thêm vào bối cảnh cho AI X.")
+    else:
+        logger.warning("Không nhận được đề xuất văn bản từ AI Z hoặc có lỗi xảy ra.")
     
     # 6. Gọi AI X với bối cảnh đã được cập nhật
     filepath, new_content, description, final_failure_reason = _invoke_ai_with_retries(context_for_ai_x, history_log)
