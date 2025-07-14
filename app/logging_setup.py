@@ -2,9 +2,7 @@
 
 import logging
 import os
-
-# Định nghĩa đường dẫn tệp log tại đây. Giá trị này sẽ được chuyển vào config.py trong các phiên bản sau.
-APP_LOG_FILE_PATH = "app/agent.log"
+from config import APP_LOG_FILE_PATH # Import từ config.py
 
 def setup_logging():
     """

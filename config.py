@@ -1,3 +1,0 @@
-# config.py
-
-DEFAULT_APPLICATION_VERSION: int = 1
