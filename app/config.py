@@ -73,6 +73,9 @@ SLEEP_BETWEEN_ITERATIONS_SECONDS = _get_env_variable("SLEEP_BETWEEN_ITERATIONS_S
 INTERACTIVE_MODE = _get_env_variable("INTERACTIVE_MODE", default=False, var_type=bool)
 AI_MODEL_NAME = _get_env_variable("AI_MODEL_NAME", default="gemini-2.5-flash")
 
+# Cấu hình mức độ chi tiết của log (ví dụ: DEBUG, INFO, WARNING, ERROR, CRITICAL)
+LOG_LEVEL = _get_env_variable("LOG_LEVEL", default="INFO") 
+
 # Thông tin phiên bản của AI Agent
 VERSION = "0.0.1"
 
