@@ -166,6 +166,27 @@ def _execute_evolution_step(iteration_count: int, history_log: list) -> dict:
         
     return log_entry
 
+# --- CÁC HÀM QUẢN LÝ LỊCH SỬ ---
+
+def _load_history() -> list:
+    """Tải lịch sử tiến hóa từ LOG_FILE_PATH."""
+    history_log = []
+    if os.path.exists(LOG_FILE_PATH):
+        try:
+            with open(LOG_FILE_PATH, "r", encoding="utf-8") as f:
+                history_log = json.load(f)
+            print(f"📚 Đã tải {len(history_log)} mục từ lịch sử.")
+        except json.JSONDecodeError:
+            print(f"⚠️ File log {LOG_FILE_PATH} bị lỗi hoặc trống, bắt đầu lịch sử mới.")
+            history_log = []
+    return history_log
+
+def _save_history(history_log: list):
+    """Lưu lịch sử tiến hóa vào LOG_FILE_PATH."""
+    with open(LOG_FILE_PATH, "w", encoding="utf-8") as f:
+        json.dump(history_log, f, indent=4, ensure_ascii=False)
+    print(f"📝 Đã cập nhật log vào file: {LOG_FILE_PATH}")
+
 # --- LUỒNG CHÍNH VỚI CƠ CHẾ THỬ LẠI (RETRY) ---
 
 def main(max_iterations: int = None):
@@ -182,15 +203,7 @@ def main(max_iterations: int = None):
     web_thread = threading.Thread(target=_run_web_server, daemon=True)
     web_thread.start()
     
-    history_log = []
-    if os.path.exists(LOG_FILE_PATH):
-        try:
-            with open(LOG_FILE_PATH, "r", encoding="utf-8") as f:
-                history_log = json.load(f)
-            print(f"📚 Đã tải {len(history_log)} mục từ lịch sử.")
-        except json.JSONDecodeError:
-            print(f"⚠️ File log {LOG_FILE_PATH} bị lỗi, bắt đầu lịch sử mới.")
-            history_log = []
+    history_log = _load_history() # Call new function
 
     iteration_count = len(history_log)
 
@@ -205,9 +218,7 @@ def main(max_iterations: int = None):
             log_entry = _execute_evolution_step(iteration_count, history_log)
             
             history_log.append(log_entry)
-            with open(LOG_FILE_PATH, "w", encoding="utf-8") as f:
-                json.dump(history_log, f, indent=4, ensure_ascii=False)
-            print(f"📝 Đã cập nhật log vào file: {LOG_FILE_PATH}")
+            _save_history(history_log) # Call new function
             
             if INTERACTIVE_MODE:
                 print("\n[CHẾ ĐỘ TƯƠNG TÁC] Đang chờ kích hoạt từ giao diện web...")
