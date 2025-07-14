@@ -12,6 +12,7 @@ EXCLUDE_PATHS = [
 
 # Cấu hình hoạt động của AI Agent
 MAX_AI_X_RETRIES = 3 # Số lần thử lại tối đa khi gọi AI X
+RETRY_SLEEP_SECONDS = 5 # Thời gian chờ giữa các lần thử lại khi gọi AI X
 SLEEP_BETWEEN_ITERATIONS_SECONDS = 15 # Thời gian chờ giữa các chu kỳ tiến hóa
 AI_MODEL_NAME = "gemini-2.5-flash" # Tên model AI được sử dụng
 
