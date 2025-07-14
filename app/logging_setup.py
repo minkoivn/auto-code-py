@@ -3,25 +3,38 @@
 import logging
 import os
 
+# Định nghĩa đường dẫn tệp log tại đây. Giá trị này sẽ được chuyển vào config.py trong các phiên bản sau.
+APP_LOG_FILE_PATH = "app/agent.log"
+
 def setup_logging():
     """
     Cấu hình hệ thống logging cho ứng dụng AI Agent X.
-    Thiết lập một logger với console handler để ghi log ra màn hình.
+    Thiết lập một logger với console handler để ghi log ra màn hình
+    và một file handler để ghi log vào tệp.
     """
-    # Lấy logger gốc của ứng dụng hoặc một logger cụ thể (ví dụ: 'ai_agent_x')
     logger = logging.getLogger('ai_agent_x')
     logger.setLevel(logging.INFO) # Đặt mức log mặc định là INFO
 
     # Kiểm tra nếu đã có handler để tránh thêm nhiều lần khi module được import lại
     if not logger.handlers:
-        # Tạo formatter cho định dạng log
         formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-        # Tạo console handler và thêm formatter vào đó
+        # Console handler
         ch = logging.StreamHandler()
         ch.setLevel(logging.INFO) # Mức log cho console handler
         ch.setFormatter(formatter)
         logger.addHandler(ch)
+
+        # File handler
+        # Đảm bảo thư mục cho file log tồn tại trước khi tạo FileHandler
+        log_dir = os.path.dirname(APP_LOG_FILE_PATH)
+        if log_dir and not os.path.exists(log_dir):
+            os.makedirs(log_dir, exist_ok=True)
+
+        fh = logging.FileHandler(APP_LOG_FILE_PATH, encoding='utf-8')
+        fh.setLevel(logging.INFO) # Mức log cho file handler
+        fh.setFormatter(formatter)
+        logger.addHandler(fh)
 
     return logger
 
