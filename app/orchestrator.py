@@ -32,7 +32,7 @@ def setup():
 
 def validate_and_commit_changes(filepath: str, new_content: str, description: str):
     """
-    Kiểm tra cú pháp, nếu hợp lệ thì ghi đè/tạo mới và commit.
+    Kiểm tra cú pháp (nếu là file Python), nếu hợp lệ thì ghi đè/tạo mới và commit.
     Trả về một tuple: (status, final_reason).
     """
     print(f"🚀 [Z] Bắt đầu quá trình thực thi cho file: {filepath}")
@@ -48,8 +48,13 @@ def validate_and_commit_changes(filepath: str, new_content: str, description: st
         with open(temp_filepath, "w", encoding="utf-8") as f:
             f.write(new_content)
         
-        py_compile.compile(temp_filepath, doraise=True)
-        print("✅ [VALIDATOR] Mã nguồn mới hợp lệ.")
+        is_python_file = filepath.endswith(".py")
+        
+        if is_python_file:
+            py_compile.compile(temp_filepath, doraise=True)
+            print("✅ [VALIDATOR] Mã nguồn Python mới hợp lệ.")
+        else:
+            print(f"⚠️ [VALIDATOR] File '{filepath}' không phải file Python, bỏ qua kiểm tra cú pháp.")
 
         os.replace(temp_filepath, filepath);
         action_verb = "Tạo mới" if is_new_file else "Ghi đè"
@@ -62,7 +67,7 @@ def validate_and_commit_changes(filepath: str, new_content: str, description: st
         return "COMMITTED", description
 
     except py_compile.PyCompileError as e:
-        error_reason = f"Lỗi cú pháp trong đề xuất mới: {e}"
+        error_reason = f"Lỗi cú pháp trong đề xuất file Python mới: {e}"
         print(f"❌ [VALIDATOR] {error_reason}")
         return "REJECTED_VALIDATION_FAILED", error_reason
     except Exception as e:
