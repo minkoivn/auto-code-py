@@ -2,18 +2,8 @@ import os
 import json
 import re
 import google.generativeai as genai
-from app.config import PROMPT_FILE_PATH # Nhập PROMPT_FILE_PATH từ config.py
-
-def _format_history_for_prompt(history_log: list, num_entries=10) -> str:
-    """Định dạng các mục log gần đây nhất để đưa vào prompt."""
-    if not history_log:
-        return "Chưa có lịch sử."
-    
-    recent_history = history_log[-num_entries:]
-    formatted_history = ""
-    for entry in recent_history:
-        formatted_history += f"- Lần {entry['iteration']}: Trạng thái = {entry['status']}. Lý do = {entry['reason']}\n"
-    return formatted_history
+from config import PROMPT_FILE_PATH # Nhập PROMPT_FILE_PATH từ config.py
+from utils import format_history_for_prompt # Nhập hàm tiện ích từ module utils
 
 def invoke_ai_x(context: str, history_log: list):
     """
@@ -24,7 +14,8 @@ def invoke_ai_x(context: str, history_log: list):
     with open(PROMPT_FILE_PATH, "r", encoding="utf-8") as f:
         prompt_template = f.read()
     
-    history_context = _format_history_for_prompt(history_log)
+    # Sử dụng hàm format_history_for_prompt từ module utils
+    history_context = format_history_for_prompt(history_log)
     prompt_filled_history = prompt_template.replace("{history_context}", history_context)
     prompt = f"{prompt_filled_history}\n\n{context}"
     
