@@ -30,12 +30,14 @@ def _get_env_variable(key: str, default: any = None, required: bool = False, var
     except ValueError:
         raise ValueError(f"Giá trị của biến môi trường '{key}' ('{value}') không thể chuyển đổi sang kiểu {var_type.__name__}.")
 
-# Cấu hình API Key cho Gemini (BẮT BUỘC)
+# Cấu hình API Key cho Gemini (BẮT BUỘNG)
 # AI Agent sẽ sử dụng giá trị này để cấu hình thư viện genai.
 GEMINI_API_KEY = _get_env_variable("GEMINI_API_KEY", required=True)
 
 # Cấu hình đường dẫn và file
-LOG_FILE_PATH = "app/evolution_log.json"
+
+# Đường dẫn cho tệp log tiến hóa của AI Agent (thay đổi từ hardcoded sang biến môi trường)
+LOG_FILE_PATH = _get_env_variable("EVOLUTION_LOG_FILE_PATH", default="app/evolution_log.json")
 
 # Đường dẫn cho tệp log hoạt động chính của ứng dụng AI Agent
 APP_LOG_FILE_PATH = _get_env_variable("APP_LOG_FILE_PATH", default="app/agent.log")
