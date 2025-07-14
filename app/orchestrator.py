@@ -44,20 +44,15 @@ def _invoke_ai_with_retries(source_context: str, history_log: list) -> tuple[str
     # If all retries failed
     return None, None, None, f"AI X thất bại sau {MAX_AI_X_RETRIES} lần thử. Lý do cuối cùng: {failure_reason}"
 
-
-# --- HÀM THỰC THI KIẾN TRÚC MỚI ---
-
-def validate_and_commit_changes(filepath: str, new_content: str, description: str):
+def _apply_and_validate_file_content(filepath: str, new_content: str) -> tuple[bool, str]:
     """
-    Kiểm tra cú pháp (nếu là file Python), nếu hợp lệ thì ghi đè/tạo mới và commit.
-    Trả về một tuple: (status, final_reason).
+    Áp dụng nội dung file mới vào hệ thống file, kiểm tra cú pháp nếu là Python.
+    Trả về (thành công: bool, thông báo lỗi: str).
     """
-    print(f"🚀 [Z] Bắt đầu quá trình thực thi cho file: {filepath}")
     temp_filepath = filepath + ".tmp"
     is_new_file = not os.path.exists(filepath)
-    
+
     try:
-        # Đảm bảo thư mục cho file mới tồn tại
         dir_name = os.path.dirname(filepath)
         if dir_name:
             os.makedirs(dir_name, exist_ok=True)
@@ -73,27 +68,50 @@ def validate_and_commit_changes(filepath: str, new_content: str, description: st
         else:
             print(f"⚠️ [VALIDATOR] File '{filepath}' không phải file Python, bỏ qua kiểm tra cú pháp.")
 
-        os.replace(temp_filepath, filepath);
+        os.replace(temp_filepath, filepath)
         action_verb = "Tạo mới" if is_new_file else "Ghi đè"
         print(f"📝 {action_verb} thành công file: {filepath}")
+        return True, ""
         
-        # Sử dụng hàm add_and_commit từ git_utils thay vì gọi subprocess trực tiếp
+    except py_compile.PyCompileError as e:
+        return False, f"Lỗi cú pháp trong đề xuất file Python mới: {e}"
+    except Exception as e:
+        return False, f"Lỗi không xác định khi áp dụng file: {e}"
+    finally:
+        if os.path.exists(temp_filepath):
+            os.remove(temp_filepath)
+
+
+# --- HÀM THỰC THI KIẾN TRÚC MỚI ---
+
+def validate_and_commit_changes(filepath: str, new_content: str, description: str):
+    """
+    Kiểm tra cú pháp (nếu là file Python), nếu hợp lệ thì ghi đè/tạo mới và commit.
+    Trả về một tuple: (status, final_reason).
+    """
+    print(f"🚀 [Z] Bắt đầu quá trình thực thi cho file: {filepath}")
+    
+    success, validation_reason = _apply_and_validate_file_content(filepath, new_content)
+
+    if not success:
+        print(f"❌ [VALIDATOR] {validation_reason}")
+        return "REJECTED_VALIDATION_FAILED", validation_reason
+    
+    try:
         commit_message = f"feat(AI): {description}"
         add_and_commit(filepath, commit_message)
         
         return "COMMITTED", description
 
-    except py_compile.PyCompileError as e:
-        error_reason = f"Lỗi cú pháp trong đề xuất file Python mới: {e}"
-        print(f"❌ [VALIDATOR] {error_reason}")
-        return "REJECTED_VALIDATION_FAILED", error_reason
-    except Exception as e:
-        error_reason = f"Lỗi không xác định trong quá trình thực thi: {e}"
+    except RuntimeError as e:
+        # Bắt lỗi từ git_utils.add_and_commit
+        error_reason = f"Lỗi khi thực hiện Git commit: {e}"
         print(f"❌ [Z] {error_reason}")
         return "EXECUTION_FAILED", error_reason
-    finally:
-        if os.path.exists(temp_filepath):
-            os.remove(temp_filepath)
+    except Exception as e:
+        error_reason = f"Lỗi không xác định trong quá trình commit: {e}"
+        print(f"❌ [Z] {error_reason}")
+        return "EXECUTION_FAILED", error_reason
 
 
 # --- LUỒNG CHÍNH VỚI CƠ CHẾ THỬ LẠI (RETRY) ---
