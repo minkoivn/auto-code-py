@@ -10,6 +10,7 @@ from ai_agent import invoke_ai_x
 from config import LOG_FILE_PATH, EXCLUDE_PATHS, MAX_AI_X_RETRIES, SLEEP_BETWEEN_ITERATIONS_SECONDS, VERSION, INTERACTIVE_MODE
 from utils import get_source_code_context
 from git_utils import add_and_commit
+from ai_z_agent import invoke_ai_z # Thêm import cho AI Z
 
 # --- CÁC HÀM TIỆN ÍCH VÀ CẤU HÌNH ---
 
@@ -24,7 +25,7 @@ def setup():
 
 # --- CÁC HÀM TƯƠNG TÁC VỚI AI VÀ LOG ---
 
-def _invoke_ai_with_retries(source_context: str, history_log: list) -> tuple[str, str, str, str]:
+def _invoke_ai_with_retries(context: str, history_log: list) -> tuple[str, str, str, str]:
     """
     Kêu gọi AI X với cơ chế thử lại.
     Trả về một tuple: (filepath, new_content, description, failure_reason)
@@ -32,7 +33,7 @@ def _invoke_ai_with_retries(source_context: str, history_log: list) -> tuple[str
     filepath, new_content, description, failure_reason = None, None, None, ""
     for attempt in range(MAX_AI_X_RETRIES):
         print(f"  (Lần thử {attempt + 1}/{MAX_AI_X_RETRIES} cho AI X...)")
-        filepath, new_content, description, failure_reason = invoke_ai_x(source_context, history_log)
+        filepath, new_content, description, failure_reason = invoke_ai_x(context, history_log)
         if filepath and new_content and description:
             print(f"  AI X đã đưa ra đề xuất thành công ở lần thử {attempt + 1}.")
             return filepath, new_content, description, None # Return None for failure_reason on success
@@ -121,9 +122,25 @@ def _execute_evolution_step(iteration_count: int, history_log: list) -> dict:
     Trả về một dictionary log_entry cho bước này.
     """
     log_entry = { "iteration": iteration_count, "status": "", "reason": "" }
+    
+    # 1. Lấy bối cảnh mã nguồn hiện tại
     source_context = get_source_code_context()
     
-    filepath, new_content, description, final_failure_reason = _invoke_ai_with_retries(source_context, history_log)
+    # 2. Gọi AI Z để lấy đề xuất nhiệm vụ
+    task_suggestion = invoke_ai_z()
+    
+    # 3. Tích hợp đề xuất của AI Z vào bối cảnh cho AI X
+    context_for_ai_x = source_context
+    if task_suggestion:
+        # Prepend the AI Z suggestion to the context in a clear format
+        # Bọc task_suggestion trong dấu nháy đơn để tránh lỗi cú pháp nếu task_suggestion có dấu nháy kép
+        context_for_ai_x = f"AI Z đã đưa ra đề xuất sau cho bạn: '{task_suggestion}'. Hãy xem xét đề xuất này khi bạn đưa ra thay đổi tiếp theo để cải thiện dự án.\n\n{source_context}"
+        print(f"🧠 [AI Z] Đề xuất của AI Z đã được thêm vào bối cảnh cho AI X.")
+    else:
+        print("🧠 [AI Z] Không nhận được đề xuất từ AI Z hoặc có lỗi xảy ra.")
+    
+    # 4. Gọi AI X với bối cảnh đã được cập nhật
+    filepath, new_content, description, final_failure_reason = _invoke_ai_with_retries(context_for_ai_x, history_log)
 
     if filepath and new_content and description:
         status, final_reason = validate_and_commit_changes(filepath, new_content, description)
