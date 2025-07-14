@@ -14,6 +14,7 @@ EXCLUDE_PATHS = [
 MAX_AI_X_RETRIES = 3 # Số lần thử lại tối đa khi gọi AI X
 RETRY_SLEEP_SECONDS = 5 # Thời gian chờ giữa các lần thử lại khi gọi AI X
 SLEEP_BETWEEN_ITERATIONS_SECONDS = 15 # Thời gian chờ giữa các chu kỳ tiến hóa
+INTERACTIVE_MODE = False # Chế độ tương tác: True để yêu cầu người dùng xác nhận sau mỗi chu kỳ
 AI_MODEL_NAME = "gemini-2.5-flash" # Tên model AI được sử dụng
 
 # Thông tin phiên bản của AI Agent
