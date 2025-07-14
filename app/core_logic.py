@@ -1,6 +1,7 @@
 import logging
 import time
 import random
+import os # Import os for environment variables
 from config import APPLICATION_NAME
 
 def _process_single_task(
@@ -56,6 +57,7 @@ def run_application_core_logic(version: int) -> None:
     Thực thi logic cốt lõi của ứng dụng dựa trên phiên bản được cung cấp.
     Đây là nơi công việc chính của ứng dụng sẽ được thực hiện.
     Hiện tại, nó mô phỏng việc xử lý các tác vụ và tổng hợp kết quả.
+    Đã được cải tiến để cho phép cấu hình các tham số mô phỏng qua biến môi trường.
     """
     logging.info("Thực thi logic cốt lõi của ứng dụng...")
     
@@ -66,17 +68,37 @@ def run_application_core_logic(version: int) -> None:
     successful_tasks = 0
     failed_tasks = 0
 
-    # Định nghĩa các tham số mô phỏng. Sau này có thể truyền từ bên ngoài (ví dụ: CLI, config).
-    default_failure_chance = 0.2
-    default_long_task_divisor = 5
+    # Lấy các tham số mô phỏng từ biến môi trường, hoặc sử dụng giá trị mặc định.
+    try:
+        # Cố gắng đọc FAILURE_CHANCE từ biến môi trường, mặc định là '0.2'
+        failure_chance_str = os.getenv('FAILURE_CHANCE', '0.2')
+        failure_chance = float(failure_chance_str)
+        if not (0.0 <= failure_chance <= 1.0):
+            raise ValueError("FAILURE_CHANCE must be between 0.0 and 1.0")
+    except ValueError:
+        logging.warning(f"Biến môi trường FAILURE_CHANCE '{failure_chance_str}' không hợp lệ. Sử dụng giá trị mặc định 0.2.")
+        failure_chance = 0.2
+    
+    try:
+        # Cố gắng đọc LONG_TASK_DIVISOR từ biến môi trường, mặc định là '5'
+        long_task_divisor_str = os.getenv('LONG_TASK_DIVISOR', '5')
+        long_task_divisor = int(long_task_divisor_str)
+        if long_task_divisor <= 0:
+            raise ValueError("LONG_TASK_DIVISOR must be a positive integer.")
+    except ValueError:
+        logging.warning(f"Biến môi trường LONG_TASK_DIVISOR '{long_task_divisor_str}' không hợp lệ. Sử dụng giá trị mặc định 5.")
+        long_task_divisor = 5
+
+    logging.info(f"Sử dụng cấu hình mô phỏng: Tỉ lệ lỗi = {failure_chance}, Bộ chia tác vụ dài = {long_task_divisor}")
+
 
     for i in range(1, num_tasks + 1):
         task_result = _process_single_task(
             i, 
             num_tasks, 
             version, 
-            default_failure_chance, 
-            default_long_task_divisor
+            failure_chance, # Sử dụng giá trị cấu hình
+            long_task_divisor # Sử dụng giá trị cấu hình
         )
         if task_result == "SUCCESS":
             successful_tasks += 1
