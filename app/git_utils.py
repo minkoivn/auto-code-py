@@ -1,255 +1,189 @@
-# app/git_utils.py
-
 import subprocess
+import logging
 import os
-from logging_setup import logger
 
-# Custom exception for Git command failures
-class GitCommandError(Exception):
-    """Exception raised for errors during Git command execution."""
-    def __init__(self, message, command=None, returncode=None, stdout=None, stderr=None):
-        super().__init__(message)
-        self.command = command
-        self.returncode = returncode
-        self.stdout = stdout
-        self.stderr = stderr
+logger = logging.getLogger(__name__)
 
-class GitAgent:
+def _run_git_command(command_args, cwd=None):
     """
-    A class to encapsulate Git operations for the AI Agent.
+    Thực thi một lệnh Git và xử lý đầu ra cũng như lỗi một cách duyên dáng.
+
+    Args:
+        command_args (list): Một danh sách các chuỗi đại diện cho lệnh Git và các đối số của nó.
+                             Ví dụ: ['add', '.']
+        cwd (str, optional): Thư mục làm việc hiện tại cho lệnh. Mặc định là None (thư mục làm việc của tiến trình hiện tại).
+
+    Returns:
+        tuple: (success (bool), stdout (str), stderr (str))
     """
-    def __init__(self, repo_path: str = "."):
-        """
-        Initializes the GitAgent with the path to the Git repository.
-        
-        Args:
-            repo_path (str): The path to the Git repository. Defaults to current directory.
-        """
-        self.repo_path = os.path.abspath(repo_path) # Normalize path
-        
-        # Verify if the provided path is a Git repository
-        try:
-            # Check if .git directory exists for the root of the repo
-            # Or if the path is inside a Git work tree
-            if not os.path.exists(os.path.join(self.repo_path, '.git')) and \
-               not self._is_inside_git_work_tree(self.repo_path):
-                raise ValueError(f"'{self.repo_path}' is not a valid Git repository ('.git' folder not found or not inside a work tree).")
+    full_command = ['git'] + command_args
+    command_str = ' '.join(full_command)
+    cwd_info = f" trong thư mục '{cwd}'" if cwd else ""
 
-            logger.info(f"Initialized GitAgent for repository: {self.repo_path}")
-        except GitCommandError as e:
-            logger.critical(f"Directory {self.repo_path} is not a valid Git repository or git is not installed. Error: {e.message}", exc_info=True)
-            raise ValueError(f"'{self.repo_path}' is not a valid Git repository.") from e
-        except Exception as e:
-            logger.critical(f"An unexpected error occurred during GitAgent initialization for path {self.repo_path}: {e}", exc_info=True)
-            raise ValueError(f"Failed to initialize GitAgent for '{self.repo_path}'.") from e
-            
-    def _is_inside_git_work_tree(self, path: str) -> bool:
-        """Checks if the given path is inside a Git work tree using `git rev-parse --is-inside-work-tree`."""
-        try:
-            result = self._execute_command(["git", "rev-parse", "--is-inside-work-tree"],
-                                           "checking if inside git work tree",
-                                           cwd=path, suppress_logging=True)
-            return result.stdout.strip() == "true"
-        except GitCommandError:
-            return False # Command failed, so not inside a git work tree
+    logger.debug(f"Đang thực thi lệnh Git: {command_str}{cwd_info}")
 
-    def _execute_command(self, command: list, description: str, cwd: str = None, suppress_logging: bool = False):
-        """
-        Execute a Git command and handle errors structurally.
-        
-        Args:
-            command (list): The Git command and its arguments as a list.
-            description (str): A description of the operation being performed, for logging.
-            cwd (str, optional): The current working directory for the command. Defaults to None (current process's cwd).
-            suppress_logging (bool): If True, suppresses info/debug logging for this command.
-        
-        Raises:
-            GitCommandError: If the Git command fails.
-        """
-        process_kwargs = {}
-        if cwd:
-            process_kwargs['cwd'] = cwd
-            
-        if not suppress_logging:
-            logger.info(f"🚀 [Git] Đang thực thi lệnh: {' '.join(command)} ({description})...")
-        
-        try:
-            result = subprocess.run(command, check=True, capture_output=True, text=True, encoding='utf-8', **process_kwargs)
-            
-            if not suppress_logging:
-                logger.info(f"✅ [Git] Lệnh '{' '.join(command)}' thành công.")
-                if result.stdout.strip():
-                    logger.debug(f"Stdout: {result.stdout.strip()}")
-                if result.stderr.strip():
-                    logger.debug(f"Stderr: {result.stderr.strip()}")
-            return result
-        except subprocess.CalledProcessError as e:
-            error_msg = f"Lỗi khi thực thi lệnh Git '{' '.join(e.cmd)}' (Mã thoát: {e.returncode})."
-            if e.stdout:
-                logger.error(f"Stdout:\n{e.stdout.strip()}")
-            if e.stderr:
-                logger.error(f"Stderr:\n{e.stderr.strip()}")
-            logger.error(f"❌ [Git] {error_msg}", exc_info=False)
-            raise GitCommandError(
-                message=error_msg,
-                command=e.cmd,
-                returncode=e.returncode,
-                stdout=e.stdout,
-                stderr=e.stderr
-            ) from e
-        except FileNotFoundError as e:
-            error_msg = f"Lỗi: Lệnh 'git' không tìm thấy. Hãy đảm bảo Git đã được cài đặt và có trong PATH."
-            logger.critical(f"❌ [Git] {error_msg}", exc_info=True)
-            raise GitCommandError(
-                message=error_msg,
-                command=command
-            ) from e
-        except Exception as e:
-            error_msg = f"Lỗi không xác định khi thực thi lệnh Git '{' '.join(command)}': {e}"
-            logger.critical(f"❌ [Git] {error_msg}", exc_info=True)
-            raise GitCommandError(
-                message=error_msg,
-                command=command
-            ) from e
-
-    def add_and_commit(self, filepath: str, commit_message: str):
-        """
-        Thêm file vào staging area của Git và tạo một commit với thông báo đã cho.
-        """
-        try:
-            logger.info(f"🚀 [Git] Đang thêm file {filepath} vào staging...")
-            self._execute_command(["git", "add", filepath], f"thêm file {filepath} vào staging", cwd=self.repo_path)
-            
-            logger.info(f"🚀 [Git] Đang tạo commit với thông báo: '{commit_message}'")
-            self._execute_command(["git", "commit", "-m", commit_message], f"tạo commit với thông báo: '{commit_message}'", cwd=self.repo_path)
-            logger.info(f"✅ [Git] Đã tạo commit thành công.")
-            
-        except GitCommandError:
-            raise 
-        except Exception as e:
-            error_message = f"Lỗi bất ngờ trong quá trình add/commit file '{filepath}': {e}"
-            logger.critical(error_message, exc_info=True)
-            raise GitCommandError(error_message) from e
-
-    def get_status(self) -> dict:
-        """
-        Báo cáo các thay đổi đang chờ xử lý, tệp chưa được theo dõi và trạng thái kho lưu trữ chung.
-        
-        Returns:
-            dict: A dictionary containing lists of 'staged', 'unstaged', and 'untracked' files.
-        """
-        logger.info("🚀 [Git] Đang kiểm tra trạng thái kho lưu trữ...")
-        try:
-            result = self._execute_command(["git", "status", "--porcelain"], "lấy trạng thái Git", cwd=self.repo_path)
-            output_lines = result.stdout.strip().split('\n')
-            
-            staged_files = []
-            unstaged_files = []
-            untracked_files = []
-
-            # Check if output is empty after stripping, or just contains empty lines
-            if not output_lines or (len(output_lines) == 1 and not output_lines[0]):
-                logger.info("✅ [Git] Kho lưu trữ sạch, không có thay đổi nào.")
-                return {
-                    "staged": [],
-                    "unstaged": [],
-                    "untracked": [],
-                    "is_clean": True,
-                    "summary": "Kho lưu trữ sạch."
-                }
-
-            for line in output_lines:
-                if not line:
-                    continue
-
-                status_code = line[0:2]
-                filepath = line[3:].strip() # Path might contain spaces, need to handle quoted paths
-
-                # Handle quoted paths (e.g., "path with spaces.txt")
-                if filepath.startswith('"') and filepath.endswith('"'):
-                    filepath = filepath[1:-1]
-                
-                # Staged (index status) - X in XY
-                if status_code[0] in ['A', 'M', 'D', 'R', 'C']:
-                    staged_files.append(filepath)
-                
-                # Unstaged (work tree status) - Y in XY
-                # This covers modifications, deletions, etc. that are not yet staged.
-                # '??' indicates untracked, handled separately.
-                if status_code[1] in ['M', 'D', 'A', 'R', 'C', 'T']:
-                    # Only add if there's an actual unstaged change (Y is not space)
-                    if status_code[1] != ' ':
-                        unstaged_files.append(filepath)
-
-                # Untracked
-                if status_code == '??':
-                    untracked_files.append(filepath)
-            
-            # Remove duplicates using set to ensure unique file paths, then convert back to list
-            staged_files = list(set(staged_files))
-            unstaged_files = list(set(unstaged_files))
-            untracked_files = list(set(untracked_files))
-
-            # Generate summary string
-            summary_parts = []
-            if staged_files:
-                summary_parts.append(f"{len(staged_files)} tệp đã được đưa vào staging.")
-            if unstaged_files:
-                summary_parts.append(f"{len(unstaged_files)} tệp đã thay đổi nhưng chưa được đưa vào staging.")
-            if untracked_files:
-                summary_parts.append(f"{len(untracked_files)} tệp chưa được theo dõi.")
-            
-            summary = ", ".join(summary_parts) if summary_parts else "Kho lưu trữ sạch."
-
-            logger.info(f"✅ [Git] Trạng thái kho lưu trữ: {summary}")
-
-            return {
-                "staged": staged_files,
-                "unstaged": unstaged_files,
-                "untracked": untracked_files,
-                "is_clean": not (staged_files or unstaged_files or untracked_files),
-                "summary": summary
-            }
-
-        except GitCommandError:
-            raise
-        except Exception as e:
-            error_message = f"Lỗi không xác định khi lấy trạng thái Git: {e}"
-            logger.critical(error_message, exc_info=True)
-            raise GitCommandError(error_message) from e
-
-    def _get_diff_summary(self) -> str:
-        """
-        Generates a summary of pending Git changes (staged and unstaged diffs) using `git diff --stat`.
-        This method is private and could be used by other public methods to enrich their output.
-        """
-        logger.info("🚀 [Git] Đang tạo bản tóm tắt các thay đổi Git đang chờ xử lý...")
-        diff_summary_parts = []
-        
-        # Get unstaged changes (changes in working directory not yet staged)
-        unstaged_result = self._execute_command(
-            ["git", "diff", "--stat"], 
-            "lấy tóm tắt diff của các thay đổi chưa được đưa vào staging", 
-            cwd=self.repo_path, 
-            suppress_logging=True
+    try:
+        process = subprocess.run(
+            full_command,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            check=False, # Chúng ta xử lý mã trả về thủ công
+            encoding='utf-8', # Đảm bảo mã hóa đúng cho đầu ra
+            errors='replace' # Thay thế các ký tự không thể giải mã
         )
-        if unstaged_result.stdout.strip():
-            diff_summary_parts.append("\n--- Thay đổi CHƯA được đưa vào staging ---\n" + unstaged_result.stdout.strip())
 
-        # Get staged changes (changes in index, ready to be committed)
-        staged_result = self._execute_command(
-            ["git", "diff", "--cached", "--stat"], 
-            "lấy tóm tắt diff của các thay đổi đã được đưa vào staging", 
-            cwd=self.repo_path, 
-            suppress_logging=True
-        )
-        if staged_result.stdout.strip():
-            diff_summary_parts.append("\n--- Thay đổi ĐÃ được đưa vào staging ---\n" + staged_result.stdout.strip())
+        stdout = process.stdout.strip()
+        stderr = process.stderr.strip()
 
-        if not diff_summary_parts:
-            logger.info("✅ [Git] Không có thay đổi nào đang chờ xử lý để tạo tóm tắt diff.")
-            return "Không có thay đổi nào đang chờ xử lý (work tree sạch)."
-        
-        full_summary = "\n".join(diff_summary_parts)
-        logger.info("✅ [Git] Đã tạo tóm tắt diff thành công.")
-        return full_summary
+        if process.returncode != 0:
+            log_message = f"Lệnh Git THẤT BẠI (Mã trả về: {process.returncode}): {command_str}{cwd_info}"
+            logger.error(log_message)
+            if stdout:
+                logger.error(f"STDOUT:\n{stdout}")
+            if stderr:
+                logger.error(f"STDERR:\n{stderr}")
+            return False, stdout, stderr
+        else:
+            logger.info(f"Lệnh Git THÀNH CÔNG: {command_str}{cwd_info}")
+            if stdout:
+                logger.debug(f"STDOUT:\n{stdout}")
+            if stderr: # Thường trống khi thành công, nhưng tốt cho việc gỡ lỗi
+                logger.debug(f"STDERR:\n{stderr}")
+            return True, stdout, stderr
+
+    except FileNotFoundError:
+        logger.error(f"Không tìm thấy tệp thực thi Git. Vui lòng đảm bảo Git đã được cài đặt và có trong PATH của hệ thống.")
+        return False, "", "Không tìm thấy tệp thực thi Git."
+    except subprocess.CalledProcessError as e:
+        # Điều này không nên xảy ra nếu check=False, nhưng là một phương án dự phòng
+        logger.error(f"Lệnh Git thất bại với CalledProcessError: {command_str}{cwd_info}")
+        logger.error(f"Mã trả về: {e.returncode}, Đầu ra: {e.output}, Lỗi chuẩn: {e.stderr}")
+        return False, e.stdout, e.stderr
+    except Exception as e:
+        logger.error(f"Đã xảy ra lỗi không mong muốn khi thực thi lệnh Git '{command_str}': {e}", exc_info=True)
+        return False, "", str(e)
+
+
+# --- Các hàm tiện ích Git đã được tái cấu trúc ---
+
+def git_add(filepath, repo_path=None):
+    """Thêm tệp vào khu vực dàn dựng Git."""
+    success, stdout, stderr = _run_git_command(['add', filepath], cwd=repo_path)
+    if not success:
+        logger.error(f"Không thể thêm '{filepath}'. Lỗi: {stderr}")
+    return success
+
+def git_commit(message, repo_path=None):
+    """Cam kết các thay đổi vào kho lưu trữ Git."""
+    success, stdout, stderr = _run_git_command(['commit', '-m', message], cwd=repo_path)
+    if not success:
+        logger.error(f"Không thể cam kết với thông báo: '{message}'. Lỗi: {stderr}")
+    return success
+
+def git_checkout(branch_name, create_new=False, repo_path=None):
+    """
+    Kiểm tra một nhánh Git.
+    Nếu create_new là True, tạo một nhánh mới.
+    """
+    command = ['checkout']
+    if create_new:
+        command.append('-b')
+    command.append(branch_name)
+
+    success, stdout, stderr = _run_git_command(command, cwd=repo_path)
+    if not success:
+        logger.error(f"Không thể kiểm tra nhánh '{branch_name}'. Lỗi: {stderr}")
+    return success
+
+def git_pull(branch_name=None, repo_path=None):
+    """Kéo các thay đổi từ kho lưu trữ từ xa."""
+    command = ['pull']
+    if branch_name:
+        # Giả sử remote là origin
+        command.extend(['origin', branch_name])
+    success, stdout, stderr = _run_git_command(command, cwd=repo_path)
+    if not success:
+        logger.error(f"Không thể kéo các thay đổi. Lỗi: {stderr}")
+    return success
+
+def git_push(branch_name=None, repo_path=None, force=False):
+    """Đẩy các thay đổi lên kho lưu trữ từ xa."""
+    command = ['push']
+    if force:
+        command.append('--force')
+    if branch_name:
+        command.extend(['origin', branch_name]) # Giả sử remote là origin
+    success, stdout, stderr = _run_git_command(command, cwd=repo_path)
+    if not success:
+        logger.error(f"Không thể đẩy các thay đổi. Lỗi: {stderr}")
+    return success
+
+def git_stash_push(message=None, repo_path=None):
+    """Lưu trữ các thay đổi hiện tại."""
+    command = ['stash', 'push']
+    if message:
+        command.extend(['-m', message])
+    success, stdout, stderr = _run_git_command(command, cwd=repo_path)
+    if not success:
+        logger.error(f"Không thể lưu trữ các thay đổi. Lỗi: {stderr}")
+    return success
+
+def git_stash_pop(repo_path=None):
+    """Áp dụng các thay đổi được lưu trữ gần đây nhất và xóa nó khỏi danh sách lưu trữ."""
+    success, stdout, stderr = _run_git_command(['stash', 'pop'], cwd=repo_path)
+    if not success:
+        logger.error(f"Không thể khôi phục stash. Lỗi: {stderr}")
+    return success
+
+def get_current_branch(repo_path=None):
+    """Lấy tên của nhánh Git hiện tại."""
+    success, stdout, stderr = _run_git_command(['rev-parse', '--abbrev-ref', 'HEAD'], cwd=repo_path)
+    if success:
+        return stdout.strip()
+    else:
+        logger.error(f"Không thể lấy nhánh hiện tại. Lỗi: {stderr}")
+        return None
+
+def git_reset_hard(commit_hash, repo_path=None):
+    """Đặt lại kho lưu trữ về một commit cụ thể, loại bỏ tất cả các thay đổi chưa được commit."""
+    success, stdout, stderr = _run_git_command(['reset', '--hard', commit_hash], cwd=repo_path)
+    if not success:
+        logger.error(f"Không thể hard reset về {commit_hash}. Lỗi: {stderr}")
+    return success
+
+def git_status(repo_path=None):
+    """Lấy trạng thái hiện tại của kho lưu trữ Git."""
+    success, stdout, stderr = _run_git_command(['status', '--porcelain'], cwd=repo_path)
+    if success:
+        return stdout.strip()
+    else:
+        logger.error(f"Không thể lấy trạng thái git. Lỗi: {stderr}")
+        return None
+
+def git_log_last_n_commits(n=10, repo_path=None):
+    """Truy xuất N thông báo commit cuối cùng."""
+    # Sử dụng --pretty=format:%s cho chỉ chủ đề, hoặc %B cho toàn bộ nội dung. %H cho hash.
+    # Hiện tại, hãy lấy hash và chủ đề
+    command = ['log', f'-n{n}', '--pretty=format:%H %s']
+    success, stdout, stderr = _run_git_command(command, cwd=repo_path)
+    if success:
+        commits = []
+        for line in stdout.strip().split('\n'):
+            if line:
+                parts = line.split(' ', 1)
+                if len(parts) == 2:
+                    commits.append({"hash": parts[0], "message": parts[1]})
+        return commits
+    else:
+        logger.error(f"Không thể lấy {n} commit cuối cùng. Lỗi: {stderr}")
+        return []
+
+def git_diff(repo_path=None):
+    """Lấy sự khác biệt của các thay đổi chưa được commit."""
+    success, stdout, stderr = _run_git_command(['diff'], cwd=repo_path)
+    if success:
+        return stdout.strip()
+    else:
+        logger.error(f"Không thể lấy git diff. Lỗi: {stderr}")
+        return None
