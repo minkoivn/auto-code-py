@@ -2,8 +2,7 @@ import os
 import json
 import re
 import google.generativeai as genai
-
-PROMPT_FILE_PATH = "app/prompts/x_prompt.txt"
+from app.config import PROMPT_FILE_PATH # Nhập PROMPT_FILE_PATH từ config.py
 
 def _format_history_for_prompt(history_log: list, num_entries=10) -> str:
     """Định dạng các mục log gần đây nhất để đưa vào prompt."""
