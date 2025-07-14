@@ -28,33 +28,8 @@ from web_server import app as flask_app
 from logging_setup import logger
 
 # --- Custom Git Exceptions (as suggested by AI Z) ---
-# TODO: Move these custom exceptions to a dedicated module (e.g., git_exceptions.py)
-#       or within git_utils.py once git_utils.py is refactored to raise them.
-class GitError(Exception):
-    """Base exception for Git operations."""
-    pass
-
-class GitCommandError(GitError):
-    """Raised when a Git command fails."""
-    def __init__(self, command_args, stdout, stderr, returncode, message="Git command failed"):
-        self.command_args = command_args
-        self.stdout = stdout
-        self.stderr = stderr
-        self.returncode = returncode
-        super().__init__(f"{message}: '{' '.join(command_args)}' exited with code {returncode}.\nSTDOUT: {stdout}\nSTDERR: {stderr}")
-
-class GitCommandNotFoundError(GitCommandError):
-    """Raised when a Git command (e.g., 'git' itself) is not found."""
-    def __init__(self, command, message="Git command not found"):
-        # For command not found, usually return code is 127
-        super().__init__([command], "", f"Command '{command}' not found. Please ensure Git is installed and in your PATH.", 127, message)
-        self.command_name = command
-
-class NotAGitRepositoryError(GitError):
-    """Raised when an operation is performed outside a Git repository."""
-    def __init__(self, path, message="Not a Git repository"): 
-        self.path = path
-        super().__init__(f"{message}: {path}")
+# Lần 79 đã tạo module git_exceptions.py, vì vậy chúng ta cần import từ đó.
+from git_exceptions import GitError, GitCommandError, GitCommandNotFoundError, NotAGitRepositoryError
 
 # --- CÁC HÀM TIỆN ÍCH VÀ CẤU HÌNH ---
 
@@ -81,18 +56,24 @@ def _invoke_ai_with_retries(context: str, history_log: list) -> tuple[str, str, 
     Trả về một tuple: (filepath, new_content, description, failure_reason)
     """
     filepath, new_content, description, failure_reason = None, None, None, ""
+    
+    # Log input context summary for AI X call
+    logger.info(f"  [AI X Call] Chuẩn bị gọi AI X. Kích thước bối cảnh: {len(context)} ký tự. Lịch sử log: {len(history_log)} mục.")
+
     for attempt in range(MAX_AI_X_RETRIES):
         logger.info(f"  (Lần thử {attempt + 1}/{MAX_AI_X_RETRIES} cho AI X...)")
         filepath, new_content, description, failure_reason = invoke_ai_x(context, history_log)
         if filepath and new_content and description:
-            logger.info(f"  AI X đã đưa ra đề xuất thành công ở lần thử {attempt + 1}.")
+            logger.info(f"  [AI X Success] AI X đã đưa ra đề xuất thành công ở lần thử {attempt + 1}.")
+            logger.info(f"    Đề xuất: File '{filepath}', Mô tả: '{description}', Kích thước nội dung: {len(new_content) if new_content else 0} bytes.") # Log detailed output
             return filepath, new_content, description, None # Return None for failure_reason on success
         else:
-            logger.warning(f"  AI X thất bại lần {attempt + 1}. Lý do: {failure_reason}")
+            logger.warning(f"  [AI X Fail] AI X thất bại lần {attempt + 1}. Lý do: {failure_reason}")
             if attempt < MAX_AI_X_RETRIES - 1:
                 time.sleep(RETRY_SLEEP_SECONDS) 
     
     # If all retries failed
+    logger.error(f"  [AI X Fail] AI X thất bại sau {MAX_AI_X_RETRIES} lần thử. Lý do cuối cùng: {failure_reason}")
     return None, None, None, f"AI X thất bại sau {MAX_AI_X_RETRIES} lần thử. Lý do cuối cùng: {failure_reason}"
 
 def _invoke_ai_z_with_retries(user_request: str | None) -> tuple[str | None, list[str] | None]:
@@ -101,19 +82,26 @@ def _invoke_ai_z_with_retries(user_request: str | None) -> tuple[str | None, lis
     Trả về một tuple: (chuỗi mô tả nhiệm vụ, danh sách các tệp liên quan) hoặc (None, None) nếu có lỗi.
     """
     suggestion, relevant_files = None, None
+    
+    # Log input for AI Z call
+    logger.info(f"  [AI Z Call] Chuẩn bị gọi AI Z. Yêu cầu người dùng: {'Có' if user_request else 'Không có'}.")
+    if user_request:
+        logger.debug(f"    Yêu cầu người dùng chi tiết: '{user_request[:200]}{'...' if len(user_request) > 200 else ''}'") # Log truncated user request
+
     for attempt in range(MAX_AI_X_RETRIES): # Sử dụng cùng cấu hình thử lại với AI X
         logger.info(f"  (Lần thử {attempt + 1}/{MAX_AI_X_RETRIES} cho AI Z...)")
         suggestion, relevant_files = invoke_ai_z(user_request=user_request)
         if suggestion is not None and relevant_files is not None: # Kiểm tra cả hai phần
-            logger.info(f"  AI Z đã đưa ra đề xuất thành công ở lần thử {attempt + 1}.")
+            logger.info(f"  [AI Z Success] AI Z đã đưa ra đề xuất thành công ở lần thử {attempt + 1}.")
+            logger.info(f"    Đề xuất: '{suggestion[:200]}{'...' if len(suggestion) > 200 else ''}', Tệp liên quan: {relevant_files}") # Log detailed output
             return suggestion, relevant_files
         else:
-            logger.warning(f"  AI Z thất bại lần {attempt + 1}.")
+            logger.warning(f"  [AI Z Fail] AI Z thất bại lần {attempt + 1}.")
             if attempt < MAX_AI_X_RETRIES - 1:
                 time.sleep(RETRY_SLEEP_SECONDS)
     
     # Nếu tất cả các lần thử đều thất bại
-    logger.error(f"AI Z thất bại sau {MAX_AI_X_RETRIES} lần thử.")
+    logger.error(f"  [AI Z Fail] AI Z thất bại sau {MAX_AI_X_RETRIES} lần thử.")
     return None, None
 
 def _apply_and_validate_file_content(filepath: str, new_content: str) -> tuple[bool, str]:
@@ -177,7 +165,10 @@ def validate_and_commit_changes(filepath: str, new_content: str, description: st
     
     try:
         commit_message = f"feat(AI): {description}"
+        # Log Git action with details
+        logger.info(f"[Git Action] Chuẩn bị thêm và commit file '{filepath}' với thông điệp: '{commit_message}'")
         git_agent.add_and_commit(filepath, commit_message) # Sử dụng đúng instance GitAgent
+        logger.info(f"[Git Action] Commit thành công cho file: {filepath}")
         
         return "COMMITTED", description
     except NotAGitRepositoryError as e:
@@ -247,10 +238,11 @@ def _execute_evolution_step(iteration_count: int, history_log: list) -> dict:
     
     # 5. Tích hợp đề xuất của AI Z vào bối cảnh cho AI X
     # Quyết định bối cảnh mã nguồn cho AI X
+    source_code_for_ai_x = "" # Initialize
     if ai_z_suggestion_text and relevant_files_from_z:
         # Sử dụng bối cảnh mục tiêu nếu AI Z cung cấp các tệp liên quan và có đề xuất
         source_code_for_ai_x = get_source_code_context(relevant_files=relevant_files_from_z)
-        logger.info(f"AI X sẽ làm việc với bối cảnh mục tiêu dựa trên đề xuất của AI Z. Số lượng tệp: {len(relevant_files_from_z)}")
+        logger.info(f"AI X sẽ làm việc với bối cảnh mục tiêu dựa trên đề xuất của AI Z. Số lượng tệp được chọn bởi AI Z: {len(relevant_files_from_z)}")
     else:
         # Quay về bối cảnh đầy đủ nếu AI Z không cung cấp tệp cụ thể hoặc có lỗi
         source_code_for_ai_x = get_source_code_context()
@@ -262,7 +254,7 @@ def _execute_evolution_step(iteration_count: int, history_log: list) -> dict:
         context_for_ai_x = f"AI Z đã đưa ra đề xuất sau cho bạn: '{ai_z_suggestion_text}'. Hãy xem xét đề xuất này khi bạn đưa ra thay đổi tiếp theo để cải thiện dự án.\n\n{source_code_for_ai_x}"
         logger.info("Đề xuất của AI Z (văn bản) đã được thêm vào bối cảnh cho AI X.")
     else:
-        logger.warning("Không nhận được đề xuất văn bản từ AI Z hoặc có lỗi xảy ra.")
+        logger.warning("Không nhận được đề xuất văn bản từ AI Z hoặc có lỗi xảy ra. Bối cảnh cho AI X không bao gồm đề xuất AI Z.")
     
     # 6. Gọi AI X với bối cảnh đã được cập nhật
     filepath, new_content, description, final_failure_reason = _invoke_ai_with_retries(context_for_ai_x, history_log)
