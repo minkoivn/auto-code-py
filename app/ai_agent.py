@@ -2,6 +2,7 @@ import os
 import json
 import re
 import google.generativeai as genai
+from google.generativeai.types import StopCandidateException # Import specific exception
 from config import PROMPT_FILE_PATH, AI_MODEL_NAME
 from utils import format_history_for_prompt
 from logging_setup import logger # Import the logger
@@ -64,6 +65,17 @@ def invoke_ai_x(context: str, history_log: list):
     try:
         response = model.generate_content(prompt)
         
+        # Bổ sung kiểm tra robust cho phản hồi API
+        if not response.candidates:
+            reason = "API Gemini trả về không có ứng cử viên (candidate). Có thể do bị chặn nội dung hoặc không tạo được phản hồi." 
+            logger.error(f"❌ Lỗi khi gọi Gemini API cho AI X: {reason}")
+            return None, None, None, reason
+        
+        if not response.text.strip():
+            reason = "API Gemini trả về phản hồi rỗng hoặc chỉ chứa khoảng trắng sau khi tạo nội dung." 
+            logger.error(f"❌ Lỗi khi gọi Gemini API cho AI X: {reason}")
+            return None, None, None, reason
+            
         try:
             filepath, new_content, description = _process_ai_response_json(response.text)
             logger.info("🤖 [AI X] Đã nhận được đề xuất JSON hợp lệ.")
@@ -72,6 +84,10 @@ def invoke_ai_x(context: str, history_log: list):
             # Lỗi từ hàm xử lý JSON
             return None, None, None, str(ve)
 
+    except StopCandidateException as e:
+        reason = f"Đề xuất bị chặn do chính sách an toàn hoặc lý do khác: {e}"
+        logger.error(f"❌ Lỗi khi gọi Gemini API cho AI X (StopCandidateException): {reason}", exc_info=True)
+        return None, None, None, reason
     except Exception as e:
         logger.error(f"❌ Lỗi khi gọi Gemini API cho AI X: {e}", exc_info=True)
         return None, None, None, str(e)
