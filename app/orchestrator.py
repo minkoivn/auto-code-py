@@ -17,24 +17,24 @@ from config import (
     CONTROL_DIR,
     TRIGGER_NEXT_STEP_FLAG,
     GEMINI_API_KEY,
-    USER_REQUEST_FILE # Import USER_REQUEST_FILE
+    USER_REQUEST_FILE,
+    REPO_DIR # Import REPO_DIR để khởi tạo GitAgent
 )
 from utils import get_source_code_context
-from git_utils import add_and_commit
+from git_utils import GitAgent # Thay đổi: Import lớp GitAgent
 from ai_z_agent import invoke_ai_z
 import threading
 from web_server import app as flask_app
-from logging_setup import logger # Import the logger
+from logging_setup import logger
 
 # --- CÁC HÀM TIỆN ÍCH VÀ CẤU HÌNH ---
 
 def setup():
     """Cấu hình API Key cho Gemini."""
-    # load_dotenv() đã được xử lý tự động khi config.py được import
     if not GEMINI_API_KEY:
         logger.critical("GEMINI_API_KEY not found. Please set it in the .env file.", exc_info=True)
         raise ValueError("GEMINI_API_KEY not found. Please set it in the .env file.")
-    genai.configure(api_key=GEMINI_API_KEY);
+    genai.configure(api_key=GEMINI_API_KEY)
     logger.info("Đã cấu hình Gemini API Key.")
 
 def _run_web_server():
@@ -66,18 +66,18 @@ def _invoke_ai_with_retries(context: str, history_log: list) -> tuple[str, str, 
     # If all retries failed
     return None, None, None, f"AI X thất bại sau {MAX_AI_X_RETRIES} lần thử. Lý do cuối cùng: {failure_reason}"
 
-def _invoke_ai_z_with_retries(user_request: str | None) -> str | None:
+def _invoke_ai_z_with_retries(user_request: str | None) -> tuple[str | None, list[str] | None]:
     """
     Kêu gọi AI Z với cơ chế thử lại.
-    Trả về chuỗi đề xuất hoặc None nếu thất bại sau các lần thử.
+    Trả về một tuple: (chuỗi mô tả nhiệm vụ, danh sách các tệp liên quan) hoặc (None, None) nếu có lỗi.
     """
-    task_suggestion = None
+    suggestion, relevant_files = None, None
     for attempt in range(MAX_AI_X_RETRIES): # Sử dụng cùng cấu hình thử lại với AI X
         logger.info(f"  (Lần thử {attempt + 1}/{MAX_AI_X_RETRIES} cho AI Z...)")
-        task_suggestion = invoke_ai_z(user_request=user_request)
-        if task_suggestion:
+        suggestion, relevant_files = invoke_ai_z(user_request=user_request)
+        if suggestion is not None and relevant_files is not None: # Kiểm tra cả hai phần
             logger.info(f"  AI Z đã đưa ra đề xuất thành công ở lần thử {attempt + 1}.")
-            return task_suggestion
+            return suggestion, relevant_files
         else:
             logger.warning(f"  AI Z thất bại lần {attempt + 1}.")
             if attempt < MAX_AI_X_RETRIES - 1:
@@ -85,7 +85,7 @@ def _invoke_ai_z_with_retries(user_request: str | None) -> str | None:
     
     # Nếu tất cả các lần thử đều thất bại
     logger.error(f"AI Z thất bại sau {MAX_AI_X_RETRIES} lần thử.")
-    return None
+    return None, None
 
 def _apply_and_validate_file_content(filepath: str, new_content: str) -> tuple[bool, str]:
     """
@@ -111,7 +111,7 @@ def _apply_and_validate_file_content(filepath: str, new_content: str) -> tuple[b
         else:
             logger.warning(f"[VALIDATOR] File '{filepath}' không phải file Python, bỏ qua kiểm tra cú pháp.")
 
-        os.replace(temp_filepath, filepath);
+        os.replace(temp_filepath, filepath)
         action_verb = "Tạo mới" if is_new_file else "Ghi đè"
         logger.info(f"{action_verb} thành công file: {filepath}")
         return True, ""
@@ -132,8 +132,12 @@ def _apply_and_validate_file_content(filepath: str, new_content: str) -> tuple[b
 def validate_and_commit_changes(filepath: str, new_content: str, description: str):
     """
     Kiểm tra cú pháp (nếu là file Python), nếu hợp lệ thì ghi đè/tạo mới và commit.
+    Sử dụng GitAgent để thực hiện các thao tác Git.
     Trả về một tuple: (status, final_reason).
     """
+    # Khởi tạo GitAgent, sử dụng REPO_DIR từ config
+    git_agent = GitAgent(REPO_DIR)
+
     logger.info(f"Bắt đầu quá trình thực thi cho file: {filepath}")
     
     success, validation_reason = _apply_and_validate_file_content(filepath, new_content)
@@ -144,17 +148,12 @@ def validate_and_commit_changes(filepath: str, new_content: str, description: st
     
     try:
         commit_message = f"feat(AI): {description}"
-        add_and_commit(filepath, commit_message)
+        git_agent.add_and_commit(filepath, commit_message) # Sử dụng đúng instance GitAgent
         
         return "COMMITTED", description
 
-    except RuntimeError as e:
-        # Bắt lỗi từ git_utils.add_and_commit
-        error_reason = f"Lỗi khi thực hiện Git commit: {e}"
-        logger.error(f"[Z] {error_reason}", exc_info=True)
-        return "EXECUTION_FAILED", error_reason
-    except Exception as e:
-        error_reason = f"Lỗi không xác định trong quá trình commit: {e}"
+    except Exception as e: # Bắt GitCommandError hoặc bất kỳ Exception nào khác từ GitAgent
+        error_reason = f"Lỗi trong quá trình thực hiện Git commit: {e}"
         logger.error(f"[Z] {error_reason}", exc_info=True)
         return "EXECUTION_FAILED", error_reason
 
@@ -182,7 +181,8 @@ def _execute_evolution_step(iteration_count: int, history_log: list) -> dict:
             user_request = None # Reset user_request if error occurs
     
     # 3. Gọi AI Z để lấy đề xuất nhiệm vụ (với cơ chế thử lại), truyền yêu cầu người dùng vào
-    task_suggestion = _invoke_ai_z_with_retries(user_request)
+    # Giải nén tuple từ kết quả gọi AI Z một cách chính xác
+    ai_z_suggestion_text, relevant_files_from_z = _invoke_ai_z_with_retries(user_request)
     
     # 4. Xóa yêu cầu người dùng sau khi đã xử lý bởi AI Z
     if user_request and os.path.exists(USER_REQUEST_FILE):
@@ -194,11 +194,12 @@ def _execute_evolution_step(iteration_count: int, history_log: list) -> dict:
     
     # 5. Tích hợp đề xuất của AI Z vào bối cảnh cho AI X
     context_for_ai_x = source_context
-    if task_suggestion:
-        # Prepend the AI Z suggestion to the context in a clear format
-        # Bọc task_suggestion trong dấu nháy đơn để tránh lỗi cú pháp nếu task_suggestion có dấu nháy kép
-        context_for_ai_x = f"AI Z đã đưa ra đề xuất sau cho bạn: '{task_suggestion}'. Hãy xem xét đề xuất này khi bạn đưa ra thay đổi tiếp theo để cải thiện dự án.\n\n{source_context}"
-        logger.info("Đề xuất của AI Z đã được thêm vào bối cảnh cho AI X.")
+    # Chỉ bao gồm văn bản đề xuất, không phải toàn bộ tuple
+    if ai_z_suggestion_text:
+        context_for_ai_x = f"AI Z đã đưa ra đề xuất sau cho bạn: '{ai_z_suggestion_text}'. Hãy xem xét đề xuất này khi bạn đưa ra thay đổi tiếp theo để cải thiện dự án.\n\n{source_context}"
+        logger.info("Đề xuất của AI Z (văn bản) đã được thêm vào bối cảnh cho AI X.")
+        # TODO: Trong bước tiếp theo, hãy sử dụng relevant_files_from_z để tạo bối cảnh mục tiêu hơn
+        # Ví dụ: source_context = get_source_code_context(relevant_files=relevant_files_from_z)
     else:
         logger.warning("Không nhận được đề xuất từ AI Z hoặc có lỗi xảy ra.")
     
