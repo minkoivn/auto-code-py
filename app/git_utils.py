@@ -46,8 +46,8 @@ class GitAgent:
     def _is_inside_git_work_tree(self, path: str) -> bool:
         """Checks if the given path is inside a Git work tree using `git rev-parse --is-inside-work-tree`."""
         try:
-            result = self._execute_command(["git", "rev-parse", "--is-inside-work-tree"], 
-                                           "checking if inside git work tree", 
+            result = self._execute_command(["git", "rev-parse", "--is-inside-work-tree"],
+                                           "checking if inside git work tree",
                                            cwd=path, suppress_logging=True)
             return result.stdout.strip() == "true"
         except GitCommandError:
@@ -217,3 +217,39 @@ class GitAgent:
             error_message = f"Lỗi không xác định khi lấy trạng thái Git: {e}"
             logger.critical(error_message, exc_info=True)
             raise GitCommandError(error_message) from e
+
+    def _get_diff_summary(self) -> str:
+        """
+        Generates a summary of pending Git changes (staged and unstaged diffs) using `git diff --stat`.
+        This method is private and could be used by other public methods to enrich their output.
+        """
+        logger.info("🚀 [Git] Đang tạo bản tóm tắt các thay đổi Git đang chờ xử lý...")
+        diff_summary_parts = []
+        
+        # Get unstaged changes (changes in working directory not yet staged)
+        unstaged_result = self._execute_command(
+            ["git", "diff", "--stat"], 
+            "lấy tóm tắt diff của các thay đổi chưa được đưa vào staging", 
+            cwd=self.repo_path, 
+            suppress_logging=True
+        )
+        if unstaged_result.stdout.strip():
+            diff_summary_parts.append("\n--- Thay đổi CHƯA được đưa vào staging ---\n" + unstaged_result.stdout.strip())
+
+        # Get staged changes (changes in index, ready to be committed)
+        staged_result = self._execute_command(
+            ["git", "diff", "--cached", "--stat"], 
+            "lấy tóm tắt diff của các thay đổi đã được đưa vào staging", 
+            cwd=self.repo_path, 
+            suppress_logging=True
+        )
+        if staged_result.stdout.strip():
+            diff_summary_parts.append("\n--- Thay đổi ĐÃ được đưa vào staging ---\n" + staged_result.stdout.strip())
+
+        if not diff_summary_parts:
+            logger.info("✅ [Git] Không có thay đổi nào đang chờ xử lý để tạo tóm tắt diff.")
+            return "Không có thay đổi nào đang chờ xử lý (work tree sạch)."
+        
+        full_summary = "\n".join(diff_summary_parts)
+        logger.info("✅ [Git] Đã tạo tóm tắt diff thành công.")
+        return full_summary
