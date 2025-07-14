@@ -22,11 +22,28 @@ def setup():
     genai.configure(api_key=api_key)
     print("✅ Đã cấu hình Gemini API Key.")
 
-# Hàm get_source_code_context đã được chuyển sang app/utils.py và được nhập ở trên.
-
 # --- CÁC HÀM TƯƠNG TÁC VỚI AI VÀ LOG ---
 
-# Các hàm format_history_for_prompt và invoke_ai_x đã được chuyển sang app/ai_agent.py
+def _invoke_ai_with_retries(source_context: str, history_log: list) -> tuple[str, str, str, str]:
+    """
+    Kêu gọi AI X với cơ chế thử lại.
+    Trả về một tuple: (filepath, new_content, description, failure_reason)
+    """
+    filepath, new_content, description, failure_reason = None, None, None, ""
+    for attempt in range(MAX_AI_X_RETRIES):
+        print(f"  (Lần thử {attempt + 1}/{MAX_AI_X_RETRIES} cho AI X...)")
+        filepath, new_content, description, failure_reason = invoke_ai_x(source_context, history_log)
+        if filepath and new_content and description:
+            print(f"  AI X đã đưa ra đề xuất thành công ở lần thử {attempt + 1}.")
+            return filepath, new_content, description, None # Return None for failure_reason on success
+        else:
+            print(f"  AI X thất bại lần {attempt + 1}. Lý do: {failure_reason}")
+            if attempt < MAX_AI_X_RETRIES - 1:
+                time.sleep(5) # Wait before retrying
+    
+    # If all retries failed
+    return None, None, None, f"AI X thất bại sau {MAX_AI_X_RETRIES} lần thử. Lý do cuối cùng: {failure_reason}"
+
 
 # --- HÀM THỰC THI KIẾN TRÚC MỚI ---
 
@@ -107,23 +124,15 @@ def main():
             log_entry = { "iteration": iteration_count, "status": "", "reason": "" }
             source_context = get_source_code_context()
             
-            filepath, new_content, description, failure_reason = None, None, None, ""
-            for attempt in range(MAX_AI_X_RETRIES):
-                print(f"  (Lần thử {attempt + 1}/{MAX_AI_X_RETRIES} cho AI X...)")
-                filepath, new_content, description, failure_reason = invoke_ai_x(source_context, history_log)
-                if filepath and new_content and description:
-                    break 
-                else:
-                    print(f"  AI X thất bại lần {attempt + 1}. Lý do: {failure_reason}")
-                    if attempt < MAX_AI_X_RETRIES - 1:
-                        time.sleep(5)
+            # Sử dụng hàm trợ giúp mới để gọi AI với cơ chế thử lại
+            filepath, new_content, description, final_failure_reason = _invoke_ai_with_retries(source_context, history_log)
 
             if filepath and new_content and description:
                 status, final_reason = validate_and_commit_changes(filepath, new_content, description)
                 log_entry["status"] = status
                 log_entry["reason"] = final_reason
             else:
-                final_failure_reason = f"AI X thất bại sau {MAX_AI_X_RETRIES} lần thử. Lý do cuối cùng: {failure_reason}"
+                # final_failure_reason đã được trả về từ _invoke_ai_with_retries
                 print(f"❌ {final_failure_reason}")
                 log_entry["status"] = "NO_PROPOSAL"
                 log_entry["reason"] = final_failure_reason
