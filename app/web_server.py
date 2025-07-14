@@ -2,7 +2,8 @@
 from flask import Flask, render_template_string
 import os
 import json
-from config import LOG_FILE_PATH, VERSION # Import LOG_FILE_PATH và VERSION
+from config import LOG_FILE_PATH, VERSION
+from utils import get_source_code_context # NEW IMPORT
 
 app = Flask(__name__)
 
@@ -27,6 +28,7 @@ HTML_TEMPLATE = """
         .log-entry.no_proposal { background-color: #fff3cd; border-left: 5px solid #ffc107; }
         .footer { margin-top: 30px; text-align: center; color: #666; font-size: 0.9em; }
         ul { list-style-type: none; padding: 0; }
+        pre { background-color: #eee; padding: 10px; border-radius: 5px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word; }
     </style>
 </head>
 <body>
@@ -35,6 +37,9 @@ HTML_TEMPLATE = """
         <div class="version">Phiên bản Agent: {{ version }}</div>
         <p>Đây là giao diện web để theo dõi và tương tác với AI Agent X của bạn.</p>
         <p>AI Agent X sẽ tự động chạy trong nền và các cập nhật mới nhất sẽ xuất hiện ở đây.</p>
+
+        <h2>Bối cảnh mã nguồn hiện tại của Agent X</h2>
+        <pre>{{ source_context }}</pre>
 
         <h2>Lịch sử tiến hóa gần đây</h2>
         {% if log_entries %}
@@ -68,7 +73,10 @@ def index():
             print(f"⚠️ [Web Server] File log {LOG_FILE_PATH} bị lỗi hoặc trống, bắt đầu lịch sử mới trên web.")
             log_entries = []
     
-    return render_template_string(HTML_TEMPLATE, log_entries=log_entries, version=VERSION)
+    # NEW: Get source code context for display
+    current_source_context = get_source_code_context()
+    
+    return render_template_string(HTML_TEMPLATE, log_entries=log_entries, version=VERSION, source_context=current_source_context)
 
 if __name__ == '__main__':
     print("🚀 Đang khởi động AI Agent X Web Interface...")
