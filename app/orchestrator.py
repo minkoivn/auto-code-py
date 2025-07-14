@@ -14,9 +14,10 @@ from config import (
     SLEEP_BETWEEN_ITERATIONS_SECONDS,
     VERSION,
     INTERACTIVE_MODE,
-    CONTROL_DIR, # Import từ config.py
-    TRIGGER_NEXT_STEP_FLAG, # Import từ config.py
-    GEMINI_API_KEY # Import từ config.py
+    CONTROL_DIR,
+    TRIGGER_NEXT_STEP_FLAG,
+    GEMINI_API_KEY,
+    USER_REQUEST_FILE # Import USER_REQUEST_FILE
 )
 from utils import get_source_code_context
 from git_utils import add_and_commit
@@ -65,7 +66,7 @@ def _invoke_ai_with_retries(context: str, history_log: list) -> tuple[str, str, 
     # If all retries failed
     return None, None, None, f"AI X thất bại sau {MAX_AI_X_RETRIES} lần thử. Lý do cuối cùng: {failure_reason}"
 
-def _invoke_ai_z_with_retries() -> str | None:
+def _invoke_ai_z_with_retries(user_request: str | None) -> str | None:
     """
     Kêu gọi AI Z với cơ chế thử lại.
     Trả về chuỗi đề xuất hoặc None nếu thất bại sau các lần thử.
@@ -73,7 +74,7 @@ def _invoke_ai_z_with_retries() -> str | None:
     task_suggestion = None
     for attempt in range(MAX_AI_X_RETRIES): # Sử dụng cùng cấu hình thử lại với AI X
         logger.info(f"  (Lần thử {attempt + 1}/{MAX_AI_X_RETRIES} cho AI Z...)")
-        task_suggestion = invoke_ai_z()
+        task_suggestion = invoke_ai_z(user_request=user_request)
         if task_suggestion:
             logger.info(f"  AI Z đã đưa ra đề xuất thành công ở lần thử {attempt + 1}.")
             return task_suggestion
@@ -169,10 +170,29 @@ def _execute_evolution_step(iteration_count: int, history_log: list) -> dict:
     # 1. Lấy bối cảnh mã nguồn hiện tại
     source_context = get_source_code_context()
     
-    # 2. Gọi AI Z để lấy đề xuất nhiệm vụ (với cơ chế thử lại)
-    task_suggestion = _invoke_ai_z_with_retries()
+    # 2. Đọc yêu cầu người dùng (nếu có)
+    user_request = None
+    if os.path.exists(USER_REQUEST_FILE):
+        try:
+            with open(USER_REQUEST_FILE, "r", encoding="utf-8") as f:
+                user_request = f.read().strip()
+            logger.info(f"Đã đọc yêu cầu người dùng từ '{USER_REQUEST_FILE}'.")
+        except Exception as e:
+            logger.error(f"Lỗi khi đọc file yêu cầu người dùng '{USER_REQUEST_FILE}': {e}", exc_info=True)
+            user_request = None # Reset user_request if error occurs
     
-    # 3. Tích hợp đề xuất của AI Z vào bối cảnh cho AI X
+    # 3. Gọi AI Z để lấy đề xuất nhiệm vụ (với cơ chế thử lại), truyền yêu cầu người dùng vào
+    task_suggestion = _invoke_ai_z_with_retries(user_request)
+    
+    # 4. Xóa yêu cầu người dùng sau khi đã xử lý bởi AI Z
+    if user_request and os.path.exists(USER_REQUEST_FILE):
+        try:
+            os.remove(USER_REQUEST_FILE)
+            logger.info(f"Đã xóa file yêu cầu người dùng: {USER_REQUEST_FILE}")
+        except Exception as e:
+            logger.error(f"Lỗi khi xóa file yêu cầu người dùng '{USER_REQUEST_FILE}': {e}", exc_info=True)
+    
+    # 5. Tích hợp đề xuất của AI Z vào bối cảnh cho AI X
     context_for_ai_x = source_context
     if task_suggestion:
         # Prepend the AI Z suggestion to the context in a clear format
@@ -182,7 +202,7 @@ def _execute_evolution_step(iteration_count: int, history_log: list) -> dict:
     else:
         logger.warning("Không nhận được đề xuất từ AI Z hoặc có lỗi xảy ra.")
     
-    # 4. Gọi AI X với bối cảnh đã được cập nhật
+    # 6. Gọi AI X với bối cảnh đã được cập nhật
     filepath, new_content, description, final_failure_reason = _invoke_ai_with_retries(context_for_ai_x, history_log)
 
     if filepath and new_content and description:
