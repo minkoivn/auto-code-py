@@ -1,6 +1,19 @@
 import logging
 from config import APPLICATION_NAME
 
+def _process_single_task(task_id: int, total_tasks: int, version: int) -> None:
+    """
+    Mô phỏng việc xử lý một tác vụ duy nhất.
+    Đây là nơi logic nghiệp vụ chi tiết cho từng tác vụ sẽ được đặt.
+    """
+    logging.debug(f"Đang xử lý tác vụ {task_id}/{total_tasks} cho phiên bản {version} của {APPLICATION_NAME}...")
+    # Ví dụ về một số công việc thực tế có thể xảy ra ở đây:
+    # - Gọi API bên ngoài
+    # - Đọc/ghi vào cơ sở dữ liệu
+    # - Thực hiện tính toán phức tạp
+    # - Xử lý dữ liệu từ hàng đợi
+    pass # Hiện tại không làm gì ngoài log
+
 def run_application_core_logic(version: int) -> None:
     """
     Thực thi logic cốt lõi của ứng dụng dựa trên phiên bản được cung cấp.
@@ -14,8 +27,6 @@ def run_application_core_logic(version: int) -> None:
     logging.info(f"Mô phỏng xử lý {num_tasks} tác vụ cho phiên bản {version} của {APPLICATION_NAME}.")
     
     for i in range(1, num_tasks + 1):
-        logging.debug(f"Đang xử lý tác vụ {i}/{num_tasks}...")
-        # Trong một ứng dụng thực tế, đây sẽ là nơi thực hiện công việc cụ thể
-        # Ví dụ: gọi API, xử lý dữ liệu, ghi vào cơ sở dữ liệu, v.v.
+        _process_single_task(i, num_tasks, version)
     
     logging.info("Logic cốt lõi đã hoàn thành.")
