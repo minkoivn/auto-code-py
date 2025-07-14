@@ -7,7 +7,7 @@ import py_compile
 from dotenv import load_dotenv
 import google.generativeai as genai
 from ai_agent import invoke_ai_x
-from config import LOG_FILE_PATH, EXCLUDE_PATHS, MAX_AI_X_RETRIES, SLEEP_BETWEEN_ITERATIONS_SECONDS, VERSION
+from config import LOG_FILE_PATH, EXCLUDE_PATHS, MAX_AI_X_RETRIES, SLEEP_BETWEEN_ITERATIONS_SECONDS, VERSION, INTERACTIVE_MODE
 from utils import get_source_code_context
 from git_utils import add_and_commit
 
@@ -175,12 +175,18 @@ def main(max_iterations: int = None):
                 json.dump(history_log, f, indent=4, ensure_ascii=False)
             print(f"📝 Đã cập nhật log vào file: {LOG_FILE_PATH}")
             
-            print(f"⏳ Tạm nghỉ {SLEEP_BETWEEN_ITERATIONS_SECONDS} giây...")
-            # Hiển thị chỉ báo tiến độ trong thời gian tạm dừng
-            for i in range(SLEEP_BETWEEN_ITERATIONS_SECONDS):
-                print(".", end="", flush=True)
-                time.sleep(1)
-            print() # Xuống dòng sau khi in các dấu chấm
+            if INTERACTIVE_MODE:
+                user_input = input("\n[CHẾ ĐỘ TƯƠNG TÁC] Nhấn Enter để tiếp tục chu trình tiếp theo, hoặc 'q' để thoát: ").strip().lower()
+                if user_input == 'q':
+                    print("🛑 Người dùng đã chọn dừng.")
+                    break
+            else:
+                print(f"⏳ Tạm nghỉ {SLEEP_BETWEEN_ITERATIONS_SECONDS} giây...")
+                # Hiển thị chỉ báo tiến độ trong thời gian tạm dừng
+                for i in range(SLEEP_BETWEEN_ITERATIONS_SECONDS):
+                    print(".", end="", flush=True)
+                    time.sleep(1)
+                print() # Xuống dòng sau khi in các dấu chấm
 
     except KeyboardInterrupt:
         print("\n\n🛑 Đã nhận tín hiệu dừng.")
