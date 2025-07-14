@@ -2,7 +2,7 @@ import os
 import json
 import re
 import google.generativeai as genai
-from config import PROMPT_FILE_PATH
+from config import PROMPT_FILE_PATH, AI_MODEL_NAME
 from utils import format_history_for_prompt
 
 def _process_ai_response_json(ai_raw_text: str) -> tuple[str, str, str]:
@@ -59,7 +59,7 @@ def invoke_ai_x(context: str, history_log: list):
     prompt_filled_history = prompt_template.replace("{history_context}", history_context)
     prompt = f"{prompt_filled_history}\n\n{context}"
     
-    model = genai.GenerativeModel('gemini-2.5-flash')
+    model = genai.GenerativeModel(AI_MODEL_NAME)
     try:
         response = model.generate_content(prompt)
         
