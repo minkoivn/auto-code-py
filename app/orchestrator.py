@@ -27,6 +27,35 @@ import threading
 from web_server import app as flask_app
 from logging_setup import logger
 
+# --- Custom Git Exceptions (as suggested by AI Z) ---
+# TODO: Move these custom exceptions to a dedicated module (e.g., git_exceptions.py)
+#       or within git_utils.py once git_utils.py is refactored to raise them.
+class GitError(Exception):
+    """Base exception for Git operations."""
+    pass
+
+class GitCommandError(GitError):
+    """Raised when a Git command fails."""
+    def __init__(self, command_args, stdout, stderr, returncode, message="Git command failed"):
+        self.command_args = command_args
+        self.stdout = stdout
+        self.stderr = stderr
+        self.returncode = returncode
+        super().__init__(f"{message}: '{' '.join(command_args)}' exited with code {returncode}.\nSTDOUT: {stdout}\nSTDERR: {stderr}")
+
+class GitCommandNotFoundError(GitCommandError):
+    """Raised when a Git command (e.g., 'git' itself) is not found."""
+    def __init__(self, command, message="Git command not found"):
+        # For command not found, usually return code is 127
+        super().__init__([command], "", f"Command '{command}' not found. Please ensure Git is installed and in your PATH.", 127, message)
+        self.command_name = command
+
+class NotAGitRepositoryError(GitError):
+    """Raised when an operation is performed outside a Git repository."""
+    def __init__(self, path, message="Not a Git repository"): 
+        self.path = path
+        super().__init__(f"{message}: {path}")
+
 # --- CÁC HÀM TIỆN ÍCH VÀ CẤU HÌNH ---
 
 def setup():
@@ -151,11 +180,35 @@ def validate_and_commit_changes(filepath: str, new_content: str, description: st
         git_agent.add_and_commit(filepath, commit_message) # Sử dụng đúng instance GitAgent
         
         return "COMMITTED", description
-
-    except Exception as e: # Bắt GitCommandError hoặc bất kỳ Exception nào khác từ GitAgent
-        error_reason = f"Lỗi trong quá trình thực hiện Git commit: {e}"
+    except NotAGitRepositoryError as e:
+        # This catch block anticipates GitAgent raising this specific exception.
+        # It provides a more specific error message to the user.
+        error_reason = f"Lỗi Git: Không phải là kho lưu trữ Git. Vui lòng khởi tạo kho lưu trữ hoặc kiểm tra đường dẫn. Chi tiết: {e}"
+        logger.error(f"[Git Error] {error_reason}", exc_info=True)
+        return "EXECUTION_FAILED", error_reason
+    except GitCommandNotFoundError as e:
+        # This catch block anticipates GitAgent raising this specific exception.
+        error_reason = f"Lỗi Git: Không tìm thấy lệnh Git. Vui lòng đảm bảo Git đã được cài đặt và có trong PATH. Chi tiết: {e}"
+        logger.error(f"[Git Error] {error_reason}", exc_info=True)
+        return "EXECUTION_FAILED", error_reason
+    except GitCommandError as e:
+        # This catch block anticipates GitAgent raising this specific exception.
+        # It provides detailed command output for debugging.
+        error_reason = (f"Lỗi lệnh Git khi thực hiện commit. Chi tiết:\n"
+                        f"Lệnh: {' '.join(e.command_args)}\n"
+                        f"Mã thoát: {e.returncode}\n"
+                        f"STDOUT: {e.stdout}\n"
+                        f"STDERR: {e.stderr}\n"
+                        f"Lý do: {e}")
+        logger.error(f"[Git Error] {error_reason}", exc_info=True)
+        return "EXECUTION_FAILED", error_reason
+    except Exception as e: # Catch all other potential exceptions
+        # This general catch remains for any other unexpected errors from GitAgent
+        # or other parts of the try block not covered by specific Git exceptions.
+        error_reason = f"Lỗi không xác định trong quá trình thực hiện Git commit: {e}"
         logger.error(f"[Z] {error_reason}", exc_info=True)
         return "EXECUTION_FAILED", error_reason
+
 
 # --- CÁC BƯỚC TIẾN HÓA CỐT LÕI ---
 
