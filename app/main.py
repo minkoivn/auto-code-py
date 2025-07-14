@@ -1,4 +1,4 @@
-# app/main.py
+# app/main.py (Đã nâng cấp để tự sửa lỗi)
 import os
 import subprocess
 import time
@@ -13,6 +13,7 @@ VERSIONS_DIR = Path("app/versions")
 LOGS_DIR = Path("app/logs")
 LOG_FILE = LOGS_DIR / "supervisor.log"
 PYTHON_EXECUTABLE = "python"  # Hoặc "python3"
+MAX_FIX_ATTEMPTS = 3 # Giới hạn số lần thử sửa lỗi liên tiếp
 
 # --- Thiết lập Logging ---
 LOGS_DIR.mkdir(exist_ok=True)
@@ -24,6 +25,10 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
+
+# --- Import orchestrator để có thể gọi AI sửa lỗi ---
+# Chúng ta import ở đây vì main là cấp cao nhất, sẽ không gây lỗi circular import
+from orchestrator import trigger_self_correction
 
 def get_file_hash(filepath: Path) -> str:
     """Tính toán hash SHA-256 của một tệp."""
@@ -38,10 +43,7 @@ def get_file_hash(filepath: Path) -> str:
 def backup_working_version(source: Path):
     """Sao lưu phiên bản đang hoạt động vào thư mục versions."""
     VERSIONS_DIR.mkdir(exist_ok=True)
-    
-    # Tạo tên tệp sao lưu dựa trên timestamp
     backup_path = VERSIONS_DIR / f"{source.name}.{int(time.time())}.bak"
-    
     try:
         shutil.copy(source, backup_path)
         logging.info(f"Đã sao lưu phiên bản hoạt động tới: {backup_path}")
@@ -67,41 +69,55 @@ def restore_last_working_version(target: Path) -> bool:
         return False
 
 def main():
-    """Hàm chính giám sát và chạy ứng dụng."""
+    """Hàm chính giám sát và chạy ứng dụng với khả năng tự sửa lỗi."""
     process = None
     last_hash = get_file_hash(APP_FILE)
+    fix_attempts = 0
     
-    # Sao lưu phiên bản đầu tiên nếu nó hoạt động
     if last_hash:
         backup_working_version(APP_FILE)
 
     while True:
         try:
-            # Khởi chạy ứng dụng lần đầu
+            # Khởi chạy hoặc khởi động lại tiến trình
             if process is None or process.poll() is not None:
-                logging.info(f"Đang khởi chạy '{APP_FILE}'...")
-                process = subprocess.Popen([PYTHON_EXECUTABLE, str(APP_FILE)])
-                logging.info(f"'{APP_FILE}' đã được khởi chạy với PID: {process.pid}.")
-                time.sleep(2) # Chờ một chút để ứng dụng ổn định
+                # Nếu tiến trình đã từng chạy và bị lỗi
+                if process and process.poll() is not None and process.poll() != 0:
+                    error_output = process.stderr.read() if process.stderr else "Không thể đọc lỗi từ stderr."
+                    logging.error(f"'{APP_FILE}' đã thoát với mã lỗi {process.poll()}. Lỗi: {error_output}")
 
-                # Kiểm tra xem có lỗi ngay khi khởi động không
-                if process.poll() is not None:
-                    logging.error(f"'{APP_FILE}' đã thoát ngay lập tức với mã lỗi {process.poll()}.")
-                    logging.warning("Đang cố gắng phục hồi phiên bản hoạt động cuối cùng...")
-                    if restore_last_working_version(APP_FILE):
+                    if fix_attempts < MAX_FIX_ATTEMPTS:
+                        fix_attempts += 1
+                        logging.warning(f"Bắt đầu quá trình tự sửa lỗi (Lần {fix_attempts}/{MAX_FIX_ATTEMPTS})...")
+                        # Gọi AI để sửa lỗi
+                        trigger_self_correction(error_output)
+                        # Hash sẽ thay đổi và vòng lặp tiếp theo sẽ xử lý khởi động lại
+                        time.sleep(1) # Chờ một chút để file được ghi
                         last_hash = get_file_hash(APP_FILE)
-                        # Thử chạy lại sau khi phục hồi
-                        continue 
                     else:
-                        logging.critical("Không thể phục hồi. Hệ thống tạm dừng.")
-                        break
+                        logging.critical(f"Đã đạt giới hạn {MAX_FIX_ATTEMPTS} lần sửa lỗi. Đang phục hồi phiên bản ổn định cuối cùng.")
+                        if restore_last_working_version(APP_FILE):
+                            last_hash = get_file_hash(APP_FILE)
+                            fix_attempts = 0 # Reset bộ đếm
+                        else:
+                            logging.critical("Không thể phục hồi. Hệ thống tạm dừng.")
+                            break
+                
+                logging.info(f"Đang khởi chạy '{APP_FILE}'...")
+                # Mở tiến trình với stderr=subprocess.PIPE để bắt lỗi
+                process = subprocess.Popen([PYTHON_EXECUTABLE, str(APP_FILE)], stderr=subprocess.PIPE, text=True, encoding='utf-8')
+                logging.info(f"'{APP_FILE}' đã được khởi chạy với PID: {process.pid}.")
+                time.sleep(2)
+
+                # Nếu sau khi khởi động mà nó vẫn chạy tốt, reset bộ đếm lỗi
+                if process.poll() is None:
+                    fix_attempts = 0
 
             # Giám sát thay đổi tệp
             current_hash = get_file_hash(APP_FILE)
             if current_hash != last_hash:
                 logging.warning(f"Phát hiện thay đổi trong '{APP_FILE}'. Đang khởi động lại...")
                 
-                # 1. Dừng tiến trình cũ
                 process.terminate()
                 try:
                     process.wait(timeout=5)
@@ -109,15 +125,12 @@ def main():
                     process.kill()
                 logging.info("Tiến trình cũ đã được dừng.")
 
-                # 2. Sao lưu phiên bản mới (để có thể phục hồi nếu nó lỗi)
                 backup_working_version(APP_FILE)
-
-                # 3. Cập nhật hash và khởi động lại
                 last_hash = current_hash
-                process = None # Vòng lặp sẽ tự khởi động lại
+                process = None
                 continue
 
-            time.sleep(3) # Tần suất kiểm tra file
+            time.sleep(3)
 
         except KeyboardInterrupt:
             logging.info("Phát hiện Ctrl+C. Đang tắt hệ thống...")
@@ -125,7 +138,7 @@ def main():
                 process.terminate()
             break
         except Exception as e:
-            logging.critical(f"Lỗi nghiêm trọng trong vòng lặp giám sát: {e}")
+            logging.critical(f"Lỗi nghiêm trọng trong vòng lặp giám sát: {e}", exc_info=True)
             break
 
 if __name__ == "__main__":
