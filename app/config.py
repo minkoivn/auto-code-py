@@ -35,12 +35,14 @@ def _get_env_variable(key: str, default: any = None, required: bool = False, var
 GEMINI_API_KEY = _get_env_variable("GEMINI_API_KEY", required=True)
 
 # Cấu hình đường dẫn và file
-PROMPT_FILE_PATH = "app/prompts/x_prompt.txt"
 LOG_FILE_PATH = "app/evolution_log.json"
-Z_PROMPT_FILE_PATH = "app/prompts/z_prompt.txt"
 
 # Đường dẫn cho tệp log hoạt động chính của ứng dụng AI Agent
 APP_LOG_FILE_PATH = _get_env_variable("APP_LOG_FILE_PATH", default="app/agent.log")
+
+# Đường dẫn cho tệp prompt của AI Agent X và AI Agent Z
+PROMPT_FILE_PATH = _get_env_variable("AI_X_PROMPT_FILE", default="app/prompts/x_prompt.txt")
+Z_PROMPT_FILE_PATH = _get_env_variable("AI_Z_PROMPT_FILE", default="app/prompts/z_prompt.txt")
 
 # Cấu hình cho việc điều khiển thông qua giao diện web
 CONTROL_DIR = "app/control"
@@ -58,7 +60,9 @@ REPO_DIR = _get_env_variable("REPO_DIR", default=PROJECT_ROOT)
 EXCLUDE_PATHS = [
     LOG_FILE_PATH, # Loại trừ file log tiến hóa
     APP_LOG_FILE_PATH, # Loại trừ file log hoạt động chính của ứng dụng
-    "app/prompts/", # Loại trừ thư mục chứa các prompt
+    PROMPT_FILE_PATH, # Loại trừ file prompt của AI X
+    Z_PROMPT_FILE_PATH, # Loại trừ file prompt của AI Z
+    "app/prompts/", # Loại trừ thư mục chứa các prompt (phòng trường hợp có file khác)
     USER_REQUEST_FILE # Loại trừ file yêu cầu người dùng
 ]
 
