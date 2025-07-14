@@ -1,10 +1,12 @@
 import logging
+import time
 from config import APPLICATION_NAME
 
 def _process_single_task(task_id: int, total_tasks: int, version: int) -> None:
     """
     Mô phỏng việc xử lý một tác vụ duy nhất.
     Đây là nơi logic nghiệp vụ chi tiết cho từng tác vụ sẽ được đặt.
+    Thêm một độ trễ nhỏ để mô phỏng công việc đang được thực hiện.
     """
     logging.debug(f"Đang xử lý tác vụ {task_id}/{total_tasks} cho phiên bản {version} của {APPLICATION_NAME}...")
     # Ví dụ về một số công việc thực tế có thể xảy ra ở đây:
@@ -12,7 +14,8 @@ def _process_single_task(task_id: int, total_tasks: int, version: int) -> None:
     # - Đọc/ghi vào cơ sở dữ liệu
     # - Thực hiện tính toán phức tạp
     # - Xử lý dữ liệu từ hàng đợi
-    pass # Hiện tại không làm gì ngoài log
+    time.sleep(0.01) # Mô phỏng công việc nhẹ nhàng
+    pass
 
 def run_application_core_logic(version: int) -> None:
     """
