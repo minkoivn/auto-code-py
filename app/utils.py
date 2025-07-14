@@ -3,8 +3,15 @@
 import os
 from config import EXCLUDE_PATHS
 
+# Định nghĩa kích thước tệp tối đa cho phép khi đọc mã nguồn.
+# Giá trị này có thể được chuyển vào config.py trong các phiên bản sau để tập trung hóa cấu hình.
+MAX_FILE_SIZE_MB = 1 # Ví dụ: giới hạn 1 MB
+MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
+
 def get_source_code_context():
-    """Đọc mã nguồn thư mục 'app' để làm bối cảnh, loại trừ các file/thư mục không cần thiết."""
+    """Đọc mã nguồn thư mục 'app' để làm bối cảnh, loại trừ các file/thư mục không cần thiết.
+    Bao gồm kiểm tra kích thước file để bỏ qua các file quá lớn.
+    """
     context = ""
     for root, _, files in os.walk("app"):
         for file in files:
@@ -25,6 +32,16 @@ def get_source_code_context():
                 continue
 
             if file.endswith(".py"):
+                # Thêm kiểm tra kích thước tệp trước khi đọc
+                try:
+                    file_size = os.path.getsize(filepath)
+                    if file_size > MAX_FILE_SIZE_BYTES:
+                        print(f"⚠️ [WARNING] Bỏ qua file quá lớn: {filepath} ({file_size / (1024 * 1024):.2f} MB). Kích thước tối đa cho phép là {MAX_FILE_SIZE_MB} MB.")
+                        continue # Bỏ qua file này
+                except OSError as e:
+                    print(f"❌ [ERROR] Không thể kiểm tra kích thước file {filepath}: {e}")
+                    continue # Bỏ qua file này nếu không thể lấy kích thước
+
                 context += f"--- File: {filepath} ---\n"
                 with open(filepath, "r", encoding="utf-8") as f:
                     context += f.read()
