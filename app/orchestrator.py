@@ -6,15 +6,10 @@ import time
 import py_compile
 from dotenv import load_dotenv
 import google.generativeai as genai
-from app.ai_agent import invoke_ai_x # Nhập hàm invoke_ai_x từ module ai_agent
+from app.ai_agent import invoke_ai_x
+from app.config import LOG_FILE_PATH, EXCLUDE_PATHS, MAX_AI_X_RETRIES # Nhập các hằng số từ config.py
 
 # --- CÁC HÀM TIỆN ÍCH VÀ CẤU HÌNH ---
-
-LOG_FILE_PATH = "app/evolution_log.json"
-EXCLUDE_PATHS = [
-    "app/evolution_log.json", # Loại trừ file log
-    "app/prompts/"           # Loại trừ thư mục chứa các prompt
-]
 
 def setup():
     """Tải biến môi trường và cấu hình API Key cho Gemini."""
@@ -110,7 +105,7 @@ def main():
     """Hàm chính chứa vòng lặp, quản lý lịch sử và cơ chế thử lại."""
     setup()
     
-    MAX_AI_X_RETRIES = 3
+    # MAX_AI_X_RETRIES = 3 # Đã chuyển sang config.py
 
     history_log = []
     if os.path.exists(LOG_FILE_PATH):
