@@ -7,7 +7,7 @@ import py_compile
 from dotenv import load_dotenv
 import google.generativeai as genai
 from ai_agent import invoke_ai_x
-from config import LOG_FILE_PATH, EXCLUDE_PATHS, MAX_AI_X_RETRIES, SLEEP_BETWEEN_ITERATIONS_SECONDS
+from config import LOG_FILE_PATH, EXCLUDE_PATHS, MAX_AI_X_RETRIES, SLEEP_BETWEEN_ITERATIONS_SECONDS, VERSION
 from utils import get_source_code_context
 from git_utils import add_and_commit
 
@@ -141,6 +141,8 @@ def _execute_evolution_step(iteration_count: int, history_log: list) -> dict:
 def main():
     """Hàm chính chứa vòng lặp, quản lý lịch sử và cơ chế thử lại."""
     setup()
+    
+    print(f"🌟 Khởi động AI Agent X - Phiên bản: {VERSION}")
     
     history_log = []
     if os.path.exists(LOG_FILE_PATH):
