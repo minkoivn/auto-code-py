@@ -45,7 +45,7 @@ PROMPT_FILE_PATH = _get_env_variable("AI_X_PROMPT_FILE", default="app/prompts/x_
 Z_PROMPT_FILE_PATH = _get_env_variable("AI_Z_PROMPT_FILE", default="app/prompts/z_prompt.txt")
 
 # Cấu hình cho việc điều khiển thông qua giao diện web
-CONTROL_DIR = "app/control"
+CONTROL_DIR = _get_env_variable("CONTROL_DIR", default="app/control")
 TRIGGER_NEXT_STEP_FLAG = os.path.join(CONTROL_DIR, "trigger_next_step.flag")
 USER_REQUEST_FILE = os.path.join(CONTROL_DIR, "user_request.txt") # Đã chuyển từ web_server.py
 
