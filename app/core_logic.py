@@ -3,13 +3,26 @@ import time
 import random
 from config import APPLICATION_NAME
 
-def _process_single_task(task_id: int, total_tasks: int, version: int) -> str:
+def _process_single_task(
+    task_id: int, 
+    total_tasks: int, 
+    version: int, 
+    failure_chance: float, 
+    long_task_divisor: int
+) -> str:
     """
     Mô phỏng việc xử lý một tác vụ duy nhất và trả về trạng thái của nó.
     Đây là nơi logic nghiệp vụ chi tiết cho từng tác vụ sẽ được đặt.
     Thêm một độ trễ nhỏ để mô phỏng công việc đang được thực hiện.
     Đã được cải tiến để mô phỏng các tình huống khác nhau (thành công/thất bại, thời gian khác nhau).
     Trả về "SUCCESS" hoặc "FAILURE".
+    
+    Tham số:
+        task_id (int): ID của tác vụ hiện tại.
+        total_tasks (int): Tổng số tác vụ cần xử lý.
+        version (int): Phiên bản ứng dụng.
+        failure_chance (float): Xác suất (từ 0.0 đến 1.0) để một tác vụ ngẫu nhiên thất bại.
+        long_task_divisor (int): Số nguyên dùng để xác định các tác vụ 'dài' (ví dụ: nếu 5, mỗi tác vụ thứ 5 là dài).
     """
     logging.debug(f"Đang xử lý tác vụ {task_id}/{total_tasks} cho phiên bản {version} của {APPLICATION_NAME}...")
 
@@ -18,11 +31,13 @@ def _process_single_task(task_id: int, total_tasks: int, version: int) -> str:
     status_message = "hoàn thành bình thường."
     result = "SUCCESS" # Mặc định là thành công
     
-    if task_id % 5 == 0: # Mỗi tác vụ thứ 5 là "quan trọng" hoặc "dài"
+    # Sử dụng long_task_divisor để xác định tác vụ dài
+    if long_task_divisor > 0 and task_id % long_task_divisor == 0: 
         sleep_time = 0.05
         status_message = "là tác vụ quan trọng, có thể mất nhiều thời gian hơn."
-    elif task_id % 3 == 0: # Mỗi tác vụ thứ 3 "thất bại" đôi khi
-        if random.random() < 0.2: # 20% khả năng thất bại
+    # Sử dụng failure_chance để mô phỏng lỗi
+    elif task_id % 3 == 0: # Mỗi tác vụ thứ 3 có thể thất bại
+        if random.random() < failure_chance: # 'failure_chance' khả năng thất bại
             logging.error(f"  XXX Tác vụ {task_id} (phiên bản {version}) đã thất bại một cách mô phỏng!")
             result = "FAILURE" # Đánh dấu là thất bại
             # Trong một ứng dụng thực tế, điều này có thể ném ra một ngoại lệ hoặc trả về một trạng thái
@@ -51,8 +66,18 @@ def run_application_core_logic(version: int) -> None:
     successful_tasks = 0
     failed_tasks = 0
 
+    # Định nghĩa các tham số mô phỏng. Sau này có thể truyền từ bên ngoài (ví dụ: CLI, config).
+    default_failure_chance = 0.2
+    default_long_task_divisor = 5
+
     for i in range(1, num_tasks + 1):
-        task_result = _process_single_task(i, num_tasks, version)
+        task_result = _process_single_task(
+            i, 
+            num_tasks, 
+            version, 
+            default_failure_chance, 
+            default_long_task_divisor
+        )
         if task_result == "SUCCESS":
             successful_tasks += 1
         elif task_result == "FAILURE":
