@@ -113,6 +113,28 @@ def validate_and_commit_changes(filepath: str, new_content: str, description: st
         print(f"❌ [Z] {error_reason}")
         return "EXECUTION_FAILED", error_reason
 
+# --- CÁC BƯỚC TIẾN HÓA CỐT LÕI ---
+
+def _execute_evolution_step(iteration_count: int, history_log: list) -> dict:
+    """
+    Thực hiện một bước tiến hóa duy nhất (gọi AI, xử lý phản hồi, xác thực và commit).
+    Trả về một dictionary log_entry cho bước này.
+    """
+    log_entry = { "iteration": iteration_count, "status": "", "reason": "" }
+    source_context = get_source_code_context()
+    
+    filepath, new_content, description, final_failure_reason = _invoke_ai_with_retries(source_context, history_log)
+
+    if filepath and new_content and description:
+        status, final_reason = validate_and_commit_changes(filepath, new_content, description)
+        log_entry["status"] = status
+        log_entry["reason"] = final_reason
+    else:
+        print(f"❌ {final_failure_reason}")
+        log_entry["status"] = "NO_PROPOSAL"
+        log_entry["reason"] = final_failure_reason
+        
+    return log_entry
 
 # --- LUỒNG CHÍNH VỚI CƠ CHẾ THỬ LẠI (RETRY) ---
 
@@ -139,21 +161,8 @@ def main():
             print(f"🎬 BẮT ĐẦU CHU TRÌNH TIẾN HÓA LẦN THỨ {iteration_count}")
             print("="*50)
             
-            log_entry = { "iteration": iteration_count, "status": "", "reason": "" }
-            source_context = get_source_code_context()
-            
-            # Sử dụng hàm trợ giúp mới để gọi AI với cơ chế thử lại
-            filepath, new_content, description, final_failure_reason = _invoke_ai_with_retries(source_context, history_log)
-
-            if filepath and new_content and description:
-                status, final_reason = validate_and_commit_changes(filepath, new_content, description)
-                log_entry["status"] = status
-                log_entry["reason"] = final_reason
-            else:
-                # final_failure_reason đã được trả về từ _invoke_ai_with_retries
-                print(f"❌ {final_failure_reason}")
-                log_entry["status"] = "NO_PROPOSAL"
-                log_entry["reason"] = final_failure_reason
+            # Gọi hàm trợ giúp mới để thực hiện một bước tiến hóa
+            log_entry = _execute_evolution_step(iteration_count, history_log)
             
             history_log.append(log_entry)
             with open(LOG_FILE_PATH, "w", encoding="utf-8") as f:
