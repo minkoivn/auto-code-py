@@ -5,6 +5,7 @@ import json
 # Import CONTROL_DIR and TRIGGER_NEXT_STEP_FLAG from config.py for centralization
 from config import LOG_FILE_PATH, VERSION, CONTROL_DIR, TRIGGER_NEXT_STEP_FLAG 
 from utils import get_source_code_context
+from logging_setup import logger # Import the logger
 
 app = Flask(__name__)
 
@@ -20,7 +21,7 @@ def index():
                 log_entries = json.load(f)
             log_entries.reverse() # Hiển thị mục gần đây nhất trước
         except json.JSONDecodeError:
-            print(f"⚠️ [Web Server] File log {LOG_FILE_PATH} bị lỗi hoặc trống, bắt đầu lịch sử mới trên web.")
+            logger.warning(f"[Web Server] File log {LOG_FILE_PATH} bị lỗi hoặc trống, bắt đầu lịch sử mới trên web.")
             log_entries = []
     
     current_source_context = get_source_code_context()
@@ -37,7 +38,7 @@ def index():
             with open(USER_REQUEST_FILE, "r", encoding="utf-8") as f:
                 user_request_content = f.read()
         except Exception as e:
-            print(f"❌ [Web Server] Lỗi khi đọc file yêu cầu người dùng: {e}")
+            logger.error(f"[Web Server] Lỗi khi đọc file yêu cầu người dùng: {e}", exc_info=True)
             user_request_content = "Error reading request file."
 
     # Sử dụng render_template để load file index.html từ thư mục templates
@@ -58,10 +59,10 @@ def trigger_next_step():
         os.makedirs(CONTROL_DIR, exist_ok=True)
         with open(TRIGGER_NEXT_STEP_FLAG, 'w') as f:
             f.write("triggered")
-        print(f"✅ [Web Server] Đã tạo file trigger: {TRIGGER_NEXT_STEP_FLAG}")
+        logger.info(f"[Web Server] Đã tạo file trigger: {TRIGGER_NEXT_STEP_FLAG}")
         return jsonify({"status": "success", "message": "Trigger file created."}), 200
     except Exception as e:
-        print(f"❌ [Web Server] Lỗi khi tạo file trigger: {e}")
+        logger.error(f"[Web Server] Lỗi khi tạo file trigger: {e}", exc_info=True)
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/api/clear_trigger_flag', methods=['POST'])
@@ -72,10 +73,10 @@ def clear_trigger_flag():
     try:
         if os.path.exists(TRIGGER_NEXT_STEP_FLAG):
             os.remove(TRIGGER_NEXT_STEP_FLAG)
-            print(f"✅ [Web Server] Đã xóa file trigger: {TRIGGER_NEXT_STEP_FLAG}")
+            logger.info(f"[Web Server] Đã xóa file trigger: {TRIGGER_NEXT_STEP_FLAG}")
         return jsonify({"status": "success", "message": "Trigger file cleared."}), 200
     except Exception as e:
-        print(f"❌ [Web Server] Lỗi khi xóa file trigger: {e}")
+        logger.error(f"[Web Server] Lỗi khi xóa file trigger: {e}", exc_info=True)
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/api/submit_user_request', methods=['POST'])
@@ -91,10 +92,10 @@ def submit_user_request():
         os.makedirs(CONTROL_DIR, exist_ok=True)
         with open(USER_REQUEST_FILE, 'w', encoding='utf-8') as f:
             f.write(user_request.strip())
-        print(f"✅ [Web Server] Đã lưu yêu cầu người dùng vào file: {USER_REQUEST_FILE}")
-        return jsonify({"status": "success", "message": "Yêu cầu đã được gửi. AI Z sẽ xem xét trong lần lặp tiếp theo."}), 200
+        logger.info(f"[Web Server] Đã lưu yêu cầu người dùng vào file: {USER_REQUEST_FILE}")
+        return jsonify({"status": "success", "message": "Yêu cầu đã được gửi. AI Z sẽ xem xét trong lần lặp tiếp theo."}, 200)
     except Exception as e:
-        print(f"❌ [Web Server] Lỗi khi lưu yêu cầu người dùng: {e}")
+        logger.error(f"[Web Server] Lỗi khi lưu yêu cầu người dùng: {e}", exc_info=True)
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/api/clear_user_request', methods=['POST'])
@@ -105,14 +106,14 @@ def clear_user_request():
     try:
         if os.path.exists(USER_REQUEST_FILE):
             os.remove(USER_REQUEST_FILE)
-            print(f"✅ [Web Server] Đã xóa file yêu cầu người dùng: {USER_REQUEST_FILE}")
-        return jsonify({"status": "success", "message": "Yêu cầu người dùng đã được xóa."}), 200
+            logger.info(f"[Web Server] Đã xóa file yêu cầu người dùng: {USER_REQUEST_FILE}")
+        return jsonify({"status": "success", "message": "Yêu cầu người dùng đã được xóa."}, 200)
     except Exception as e:
-        print(f"❌ [Web Server] Lỗi khi xóa file yêu cầu người dùng: {e}")
+        logger.error(f"[Web Server] Lỗi khi xóa file yêu cầu người dùng: {e}", exc_info=True)
         return jsonify({"status": "error", "message": str(e)}), 500
 
 if __name__ == '__main__':
-    print("🚀 Đang khởi động AI Agent X Web Interface...")
-    print("🌐 Truy cập tại: http://127.0.0.1:3000")
+    logger.info("🚀 Đang khởi động AI Agent X Web Interface...")
+    logger.info("🌐 Truy cập tại: http://127.0.0.1:3000")
     # debug=True cho phép tự động tải lại khi có thay đổi code và cung cấp debugger
     app.run(debug=True, port=3000)
