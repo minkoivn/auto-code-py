@@ -1,6 +1,6 @@
 import logging
 import sys
-from utils import setup_logging, get_application_version, parse_cli_arguments
+from utils import prepare_application_startup
 from config import APPLICATION_NAME
 
 
@@ -20,10 +20,19 @@ class Application:
         """
         Phương thức giữ chỗ cho logic cốt lõi thực tế của ứng dụng.
         Đây là nơi công việc chính của ứng dụng sẽ được thực hiện.
+        Hiện tại, nó mô phỏng việc xử lý các tác vụ.
         """
         logging.info("Thực thi logic cốt lõi của ứng dụng...")
-        # TODO: Triển khai các tính năng ứng dụng thực tế tại đây.
-        # Ví dụ: xử lý dữ liệu, tương tác với các hệ thống bên ngoài, v.v.
+        
+        # Mô phỏng số lượng tác vụ cần xử lý dựa trên phiên bản
+        num_tasks = self.version * 5 
+        logging.info(f"Mô phỏng xử lý {num_tasks} tác vụ cho phiên bản {self.version} của {APPLICATION_NAME}.")
+        
+        for i in range(1, num_tasks + 1):
+            logging.debug(f"Đang xử lý tác vụ {i}/{num_tasks}...")
+            # Trong một ứng dụng thực tế, đây sẽ là nơi thực hiện công việc cụ thể
+            # Ví dụ: gọi API, xử lý dữ liệu, ghi vào cơ sở dữ liệu, v.v.
+        
         logging.info("Logic cốt lõi đã hoàn thành.")
 
     def run(self) -> None:
@@ -45,14 +54,9 @@ def main() -> None:
     Điểm vào chính của ứng dụng.
     Xử lý phân tích đối số, cấu hình logging, lấy phiên bản và chạy ứng dụng.
     """
-    # Phân tích các đối số dòng lệnh để lấy cấu hình ban đầu
-    args = parse_cli_arguments()
-
-    # Cấu hình logging với cấp độ từ dòng lệnh
-    setup_logging(args.log_level)
-
-    # Lấy phiên bản cuối cùng sau khi xem xét tất cả các nguồn
-    final_version = get_application_version(args.version)
+    # Hàm prepare_application_startup đã được di chuyển sang utils.py
+    # và tập trung hóa logic khởi tạo.
+    final_version = prepare_application_startup()
 
     # Khởi tạo và chạy ứng dụng với phiên bản đã xác định
     app = Application(version=final_version)
